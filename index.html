@@ -124,6 +124,8 @@ nav.tabs button[aria-current="page"]{color:var(--accent);font-weight:700}
 .glist .gtxt{flex:1;min-width:0}
 .glist .gtxt small{display:block;color:var(--muted)}
 .x{font:inherit;border:0;background:transparent;color:var(--muted);cursor:pointer;font-size:1.3rem;line-height:1;padding:4px 8px;border-radius:8px}
+.boite h3{font-family:var(--f-display);margin:0 0 6px;font-size:1rem}
+.boite ul{margin:0;padding-left:1.1em;display:flex;flex-direction:column;gap:3px}
 @media (prefers-reduced-motion: reduce){*{transition:none!important}}
 </style>
 
@@ -345,7 +347,7 @@ function viewBatch(w){
   return `<h2>${esc(b.titre || "Batch cooking du dimanche")}</h2>
     ${b.intro?`<section class="card"><p style="margin:0">${adapt(b.intro)}</p></section>`:""}
     ${(b.etapes||[]).length?`<section class="card"><ol class="steps">${b.etapes.map(s=>`<li>${adapt(s)}</li>`).join("")}</ol></section>`:""}
-    ${(b.boites||[]).length?`<section class="card"><h3 style="font-family:var(--f-display);margin:0 0 8px">Les boîtes de la semaine</h3><ul class="meals">${b.boites.map(x=>`<li class="meal" style="grid-template-columns:76px 1fr"><span class="hour">${esc(x.jour)}</span><div class="what"><p>${adapt(x.contenu)}</p></div></li>`).join("")}</ul></section>`:""}
+    ${(b.boites||[]).length?`<h2>Les boîtes, une par une</h2>${b.boites.map(x=>`<section class="card boite"><h3>${esc(x.jour)}</h3>${Array.isArray(x.contenu)?`<ul>${x.contenu.map(c=>`<li>${adapt(c)}</li>`).join("")}</ul>`:`<p style="margin:0">${adapt(x.contenu)}</p>`}</section>`).join("")}`:""}
     ${b.note?`<p class="note">${esc(b.note)}</p>`:""}`;
 }
 
