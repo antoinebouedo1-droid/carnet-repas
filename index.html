@@ -179,7 +179,12 @@ function petitDej(t){
 function collation(t, j){
   if (j.collation && t===(j.type||t)) return j.collation;
   const C = state.profil && state.profil.collations; if (C && C[t]) return C[t];
-  return t==="repos" ? "1 pomme, 30 g de fruits secs, 20 g d'amandes" : t==="renfo" ? "1 banane, 2 galettes de riz au beurre de cacahuète, 20 g d'amandes" : "1 banane + 2 tranches de pain d'épices";
+  return t==="repos" ? "1 pomme, 30 g de fruits secs, 20 g de noix" : t==="renfo" ? "1 banane, 2 galettes de riz au beurre de cacahuète, 20 g d'amandes" : "1 banane + 2 tranches de pain d'épices";
+}
+function collationSoir(t, j){
+  if (t!=="renfo" && t!=="wod") return null;
+  if (j.collation_soir && t===(j.type||t)) return j.collation_soir;
+  const C = state.profil && state.profil.collation_soir; return (C && C[t]) || "200 g de skyr ou de fromage blanc + 1 cc de miel ou 1 fruit";
 }
 function seance(t){ return t==="course" ? "Course vers 18 h 30. Eau ; au-delà de 1 h 15, gourde avec un peu de sirop." : t==="wod" ? "WOD vers 18 h 30. Eau, à petites gorgées entre les blocs." : t==="renfo" ? "Renfo vers 18 h 30. Eau." : null; }
 
@@ -247,6 +252,7 @@ function dayCard(w, j, isToday){
       ${mealRow(w, j.j+"-col","16 h 30","Collation",collation(t,j))}
       ${s?`<li class="meal"><span class="hour">18 h 30</span><div class="what"><b>Séance</b><p>${esc(s)}</p></div><span></span></li>`:""}
       ${mealRow(w, j.j+"-din","20 h","Dîner",j.diner + (state.profil?.portions?.diner ? " · "+state.profil.portions.diner : ""))}
+      ${collationSoir(t,j) ? mealRow(w, j.j+"-soir","21 h 30","Collation du soir",collationSoir(t,j).replace(/\s*\(vers 21 h 30\)/,"")) : ""}
     </ul></section>`;
 }
 
@@ -274,6 +280,7 @@ function viewJour(w){
     ${dayCard(w,j,!intro)}
     <p class="note">Touche l'étiquette ${TYPE_LBL[t]} pour changer le type de journée : le petit-déj, la collation et les repères s'adaptent.</p>
     ${state.profil?.objectif ? `<section class="card"><h3 style="font-family:var(--f-display);margin:0 0 4px;font-size:1rem">Objectif prise de masse</h3><p class="note" style="margin:0 0 6px">${esc(state.profil.objectif)}</p>${state.profil.portions?`<ul class="note" style="margin:0;padding-left:1.1em">${[["Petit-déj",state.profil.portions.petit_dejeuner],["Déjeuner",state.profil.portions.dejeuner],["Dîner",state.profil.portions.diner]].filter(x=>x[1]).map(x=>`<li><b>${x[0]} :</b> ${esc(x[1])}</li>`).join("")}</ul>`:""}</section>` : ""}
+    ${(state.profil?.conseils||[]).length ? `<section class="card"><h3 style="font-family:var(--f-display);margin:0 0 6px;font-size:1rem">Repères du quotidien</h3><ul class="note" style="margin:0;padding-left:1.1em;display:flex;flex-direction:column;gap:4px">${state.profil.conseils.map(c=>`<li>${esc(c)}</li>`).join("")}</ul></section>` : ""}
     ${viewPoids()}`;
 }
 
