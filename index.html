@@ -257,7 +257,10 @@ function viewJour(w){
   const todayIso = iso(new Date());
   let j = null;
   if (w.debut){ const idx = ORDRE.findIndex((_,i)=>iso(addDays(w.debut,i))===todayIso); if (idx>=0) j = (w.jours||[]).find(x=>x.j===ORDRE[idx]); }
-  const intro = j ? "" : `<p class="sub">Aujourd'hui n'est pas dans cette semaine. Voici le lundi.</p>`;
+  const debutPlan = weekList().map(x=>x.debut).filter(Boolean).sort()[0];
+  const intro = j ? "" : (debutPlan && todayIso < debutPlan)
+    ? `<p class="sub">Ton plan démarre le lundi ${addDays(debutPlan,0).toLocaleDateString("fr-FR",{day:"numeric",month:"long"})}. En attendant, voici un aperçu du premier jour. Pense aux courses et au batch cooking du dimanche.</p>`
+    : `<p class="sub">Aujourd'hui n'est pas dans cette semaine. Voici le lundi.</p>`;
   if (!j) j = (w.jours||[])[0];
   if (!j) return emptyWeek(w.num);
   const t = dayType(w,j);
