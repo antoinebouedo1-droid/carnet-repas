@@ -107,11 +107,23 @@ button:focus-visible,.row:focus-within{outline:2px solid var(--accent);outline-o
 .empty b{display:block;font-family:var(--f-display);color:var(--ink);font-size:1.1rem;margin-bottom:4px}
 .note{font-size:.85rem;color:var(--muted)}
 nav.tabs{position:fixed;left:0;right:0;bottom:0;z-index:6;background:var(--surface);border-top:1px solid var(--line);
-  display:grid;grid-template-columns:repeat(4,1fr);
+  display:grid;grid-template-columns:repeat(5,1fr);
   padding:6px max(8px,env(safe-area-inset-right,0px)) calc(6px + env(safe-area-inset-bottom,0px)) max(8px,env(safe-area-inset-left,0px))}
 nav.tabs button{font:inherit;font-size:.72rem;border:0;background:transparent;color:var(--muted);display:flex;flex-direction:column;align-items:center;gap:3px;padding:6px 2px;cursor:pointer;border-radius:10px}
 nav.tabs button svg{width:22px;height:22px}
 nav.tabs button[aria-current="page"]{color:var(--accent);font-weight:700}
+.swap{background:var(--wod-bg);color:var(--wod);border-radius:4px;padding:0 3px}
+.flag{display:inline-block;margin-left:6px;font-size:.72rem;font-weight:700;color:var(--renfo);background:var(--renfo-bg);border-radius:99px;padding:1px 8px;vertical-align:1px}
+.gform{display:flex;flex-direction:column;gap:10px}
+.gform label{font-size:.8rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.05em}
+.gform input{font:inherit;width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:var(--bg);color:var(--ink)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink);font-weight:700}
+.glist{list-style:none;margin:0;padding:0}
+.glist li{display:flex;align-items:center;gap:10px;padding:10px 0;border-top:1px solid var(--line)}
+.glist li:first-child{border-top:0}
+.glist .gtxt{flex:1;min-width:0}
+.glist .gtxt small{display:block;color:var(--muted)}
+.x{font:inherit;border:0;background:transparent;color:var(--muted);cursor:pointer;font-size:1.3rem;line-height:1;padding:4px 8px;border-radius:8px}
 @media (prefers-reduced-motion: reduce){*{transition:none!important}}
 </style>
 
@@ -129,6 +141,7 @@ nav.tabs button[aria-current="page"]{color:var(--accent);font-weight:700}
   <button data-tab="semaine" id="tab-semaine"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>Semaine</button>
   <button data-tab="courses" id="tab-courses"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 4h2l2.4 11h11l2-8H6.2"/><circle cx="9" cy="20" r="1.4"/><circle cx="17" cy="20" r="1.4"/></svg>Courses</button>
   <button data-tab="batch" id="tab-batch"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 11h16v3a6 6 0 0 1-6 6h-4a6 6 0 0 1-6-6z"/><path d="M2 11h20M9 7c0-1 1-1.5 1-2.5M14 7c0-1 1-1.5 1-2.5"/></svg>Dimanche</button>
+  <button data-tab="gouts" id="tab-gouts"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M5.6 5.6l12.8 12.8"/></svg>Mes goûts</button>
 </nav>
 
 <script>
@@ -190,9 +203,32 @@ function renderWeeks(){
   if (sel && el.dataset.scrolled !== state.week){ el.dataset.scrolled = state.week; el.scrollLeft = sel.offsetLeft - el.offsetWidth/2 + sel.offsetWidth/2; }
 }
 
+const GK="carnet-gouts";
+let GOUTS=[]; try{ GOUTS=JSON.parse(localStorage.getItem(GK)||"[]"); }catch(_){ GOUTS=[]; }
+function saveGouts(){ try{ localStorage.setItem(GK, JSON.stringify(GOUTS)); }catch(_){} }
+const SUGG = {"saumon":"cabillaud","thon":"sardines","poulet":"dinde","dinde":"poulet","boeuf":"porc","bœuf":"dinde","jambon":"blanc de poulet","quinoa":"boulgour","boulgour":"quinoa","semoule":"riz","lentilles":"pois chiches","lentilles corail":"lentilles vertes","pois chiches":"haricots blancs","haricots rouges":"haricots blancs","brocoli":"haricots verts","brocolis":"haricots verts","épinards":"haricots verts","champignons":"courgettes","courgettes":"haricots verts","poivron":"carotte","poivrons":"carottes","butternut":"patate douce","patate douce":"pommes de terre","patates douces":"pommes de terre","avocat":"concombre","feta":"mozzarella","comté":"emmental","parmesan":"emmental","fromage blanc":"skyr","yaourt grec":"skyr","œufs":"tofu","oeufs":"tofu","lait de coco":"crème légère","gnocchis":"pâtes","tortillas":"pain pita","chia":"graines de lin","amandes":"noisettes","beurre de cacahuète":"purée d'amande","pain d'épices":"barre de céréales","kiwis":"oranges","bananes":"compotes","banane":"compote","oignons rouges":"oignons jaunes","mozzarella":"feta","pesto":"sauce tomate","maïs":"petits pois","carottes":"poivrons","tomates cerises":"concombre","chili":"curry"};
+const ACC = {a:"aàâä",e:"eéèêë",i:"iîï",o:"oôöœ",u:"uùûü",c:"cç"};
+function norm(x){ return x.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/œ/g,"oe").trim(); }
+function pattern(word){
+  let w = norm(word).replace(/(es|s|x)$/,"");
+  const body = [...w].map(ch => ACC[ch] ? "["+ACC[ch]+ACC[ch].toUpperCase()+"]" : ch.replace(/[.*+?^${}()|[\]\\]/g,"\\$&")).join("").replace(/\s+/g,"\\s+").replace(/\[oôöœOÔÖŒ\]\[eéèêëEÉÈÊË\]/g,"(?:oe|œ|Œ)");
+  return new RegExp("(^|[^\\p{L}])("+body+"(?:es|s|x)?)(?![\\p{L}])","giu");
+}
+function adapt(text){
+  let out = esc(text); const manque = [];
+  for (const g of GOUTS){
+    const re = pattern(g.a);
+    if (!re.test(out)) continue;
+    re.lastIndex = 0;
+    if (g.r) out = out.replace(re, (m,pre)=>pre+'<span class="swap">'+esc(g.r)+'</span>');
+    else manque.push(g.a);
+  }
+  return out + manque.map(a=>`<span class="flag">contient : ${esc(a)}</span>`).join("");
+}
+
 function mealRow(w, key, hour, label, text){
   const done = !!(suivi(w.id).faits||{})[key];
-  return `<li class="meal ${done?"is-done":""}"><span class="hour">${hour}</span><div class="what"><b>${label}</b><p>${esc(text)}</p></div>
+  return `<li class="meal ${done?"is-done":""}"><span class="hour">${hour}</span><div class="what"><b>${label}</b><p>${adapt(text)}</p></div>
     <button class="tick" role="checkbox" aria-checked="${done}" aria-label="${label} fait" data-fait="${key}">${CHECK}</button></li>`;
 }
 
@@ -285,7 +321,7 @@ function viewCourses(w){
     if (!items.length) return "";
     return `<section class="card rayon"><h3>${esc(r.rayon)}</h3>${items.map(i=>{
       const on = !!coches[i.id];
-      return `<div class="row ${on?"is-done":""}" data-coche="${esc(i.id)}"><button class="tick" role="checkbox" aria-checked="${on}" aria-label="${esc(i.label)}">${CHECK}</button><span class="lbl">${esc(i.label)}</span></div>`;
+      return `<div class="row ${on?"is-done":""}" data-coche="${esc(i.id)}"><button class="tick" role="checkbox" aria-checked="${on}" aria-label="${esc(i.label)}">${CHECK}</button><span class="lbl">${adapt(i.label)}</span></div>`;
     }).join("")}</section>`;
   }).join("");
   return `<h2>Liste de courses</h2>
@@ -304,11 +340,27 @@ function viewBatch(w){
   if (!w || w.placeholder) return emptyWeek(w?w.num:1);
   const b = w.batch || {};
   return `<h2>${esc(b.titre || "Batch cooking du dimanche")}</h2>
-    ${b.intro?`<section class="card"><p style="margin:0">${esc(b.intro)}</p></section>`:""}
-    ${(b.etapes||[]).length?`<section class="card"><ol class="steps">${b.etapes.map(s=>`<li>${esc(s)}</li>`).join("")}</ol></section>`:""}
-    ${(b.boites||[]).length?`<section class="card"><h3 style="font-family:var(--f-display);margin:0 0 8px">Les boîtes de la semaine</h3><ul class="meals">${b.boites.map(x=>`<li class="meal" style="grid-template-columns:76px 1fr"><span class="hour">${esc(x.jour)}</span><div class="what"><p>${esc(x.contenu)}</p></div></li>`).join("")}</ul></section>`:""}
+    ${b.intro?`<section class="card"><p style="margin:0">${adapt(b.intro)}</p></section>`:""}
+    ${(b.etapes||[]).length?`<section class="card"><ol class="steps">${b.etapes.map(s=>`<li>${adapt(s)}</li>`).join("")}</ol></section>`:""}
+    ${(b.boites||[]).length?`<section class="card"><h3 style="font-family:var(--f-display);margin:0 0 8px">Les boîtes de la semaine</h3><ul class="meals">${b.boites.map(x=>`<li class="meal" style="grid-template-columns:76px 1fr"><span class="hour">${esc(x.jour)}</span><div class="what"><p>${adapt(x.contenu)}</p></div></li>`).join("")}</ul></section>`:""}
     ${b.note?`<p class="note">${esc(b.note)}</p>`:""}`;
 }
+
+function viewGouts(){
+  const items = GOUTS.map((g,i)=>`<li><div class="gtxt"><b>${esc(g.a)}</b><small>${g.r?"remplacé par "+esc(g.r):"pas de remplacement : signalé dans les menus"}</small></div><button class="x" data-gdel="${i}" aria-label="Retirer ${esc(g.a)}">×</button></li>`).join("");
+  return `<h2>Aliments que je n'aime pas</h2>
+    <p class="sub">Ajoute un aliment et ce que tu veux à la place. L'appli le remplace tout de suite dans les menus, les courses et le batch cooking.</p>
+    <section class="card"><form class="gform" id="gout-form">
+      <div><label for="gout-a">Je n'aime pas</label><input id="gout-a" autocomplete="off" placeholder="ex. saumon" required></div>
+      <div><label for="gout-r">Remplacer par</label><input id="gout-r" autocomplete="off" placeholder="ex. cabillaud (facultatif)"></div>
+      <button class="btn primary" type="submit">Ajouter</button></form></section>
+    ${items?`<section class="card"><ul class="glist">${items}</ul></section>
+    <section class="card"><p class="note" style="margin:0 0 10px">Pour que je refasse de vrais plats sans ces aliments dans les prochains cycles, copie ta liste et colle-la dans ta conversation avec Claude.</p>
+    <button class="btn" id="gout-copy">Copier ma liste pour Claude</button> <span class="note" id="gout-msg"></span>
+    <textarea id="gout-txt" readonly hidden style="width:100%;margin-top:10px;font:inherit" rows="4"></textarea></section>`
+    : `<div class="card empty"><b>Aucun aliment pour l'instant</b>Ajoute le premier ci-dessus : par exemple « champignons », remplacés par « courgettes ».</div>`}`;
+}
+function goutsTexte(){ return "Aliments que je n'aime pas : " + GOUTS.map(g=>g.a+(g.r?" (remplacé par "+g.r+")":"")).join(", ") + "."; }
 
 function render(){
   renderWeeks();
@@ -316,7 +368,7 @@ function render(){
   const v = document.getElementById("view");
   if (!state.ready){ v.innerHTML = `<div class="card empty"><b>Ton carnet se charge</b>Tes menus, ta liste de courses et le batch du dimanche apparaissent dans un instant.</div>`; return; }
   const w = state.weeks[state.week] || {id:state.week, num:Number(String(state.week||"s1").slice(1)), placeholder:true};
-  v.innerHTML = ({jour:viewJour, semaine:viewSemaine, courses:viewCourses, batch:viewBatch}[state.tab] || viewJour)(w);
+  v.innerHTML = ({jour:viewJour, semaine:viewSemaine, courses:viewCourses, batch:viewBatch, gouts:viewGouts}[state.tab] || viewJour)(w);
 }
 
 document.addEventListener("click", e=>{
@@ -324,6 +376,13 @@ document.addEventListener("click", e=>{
   if (!t) return;
   if (t.dataset.tab){ state.tab = t.dataset.tab; state.confirmReset=false; try{localStorage.setItem("tab",state.tab)}catch(_){} render(); window.scrollTo(0,0); return; }
   if (t.dataset.week){ state.week = t.dataset.week; state.confirmReset=false; render(); return; }
+  if (t.dataset.gdel){ GOUTS.splice(Number(t.dataset.gdel),1); saveGouts(); render(); return; }
+  if (t.id==="gout-copy"){
+    const txt = goutsTexte(), msg = document.getElementById("gout-msg"), ta = document.getElementById("gout-txt");
+    const fallback = ()=>{ ta.hidden=false; ta.value=txt; ta.focus(); ta.select(); msg.textContent="Sélectionné : copie-le."; };
+    try{ navigator.clipboard.writeText(txt).then(()=>{ msg.textContent="Copié. Colle-le dans la conversation avec Claude."; }, fallback); }catch(_){ fallback(); }
+    return;
+  }
   const w = state.weeks[state.week]; if (!w) return;
   if (t.dataset.fait){ const k=t.dataset.fait; write(w.id,{faits:{[k]:!(suivi(w.id).faits||{})[k]}}); return; }
   if (t.dataset.type){ const j=(w.jours||[]).find(x=>x.j===t.dataset.type); const cur=dayType(w,j); const nxt=TYPES[(TYPES.indexOf(cur)+1)%TYPES.length]; write(w.id,{types:{[j.j]:nxt}}); return; }
@@ -335,6 +394,20 @@ document.addEventListener("click", e=>{
   if (t.id==="reset-yes"){ state.confirmReset=false; const off={}; Object.keys(suivi(w.id).coches||{}).forEach(k=>off[k]=false); write(w.id,{coches:off}); return; }
 });
 
+document.addEventListener("input", e=>{
+  if (e.target.id!=="gout-a") return;
+  const r = document.getElementById("gout-r"); const sug = SUGG[e.target.value.trim().toLowerCase()];
+  if (!r.value || r.value === r.dataset.sug){ r.value = sug || ""; }
+  r.dataset.sug = sug || "";
+});
+document.addEventListener("submit", e=>{
+  if (e.target.id!=="gout-form") return;
+  e.preventDefault();
+  const a = document.getElementById("gout-a").value.trim(); const ri = document.getElementById("gout-r");
+  const r = ri.value.trim();
+  if (!a || GOUTS.some(g=>norm(g.a)===norm(a))) return;
+  GOUTS.push({a, r}); saveGouts(); render();
+});
 document.addEventListener("submit", e=>{
   if (e.target.id!=="poids-form") return;
   e.preventDefault();
