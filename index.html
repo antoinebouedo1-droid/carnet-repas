@@ -126,6 +126,23 @@ nav.tabs button[aria-current="page"]{color:var(--accent);font-weight:700}
 .x{font:inherit;border:0;background:transparent;color:var(--muted);cursor:pointer;font-size:1.3rem;line-height:1;padding:4px 8px;border-radius:8px}
 .boite h3{font-family:var(--f-display);margin:0 0 6px;font-size:1rem}
 .boite ul{margin:0;padding-left:1.1em;display:flex;flex-direction:column;gap:3px}
+.acts{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px}
+.mini{font:inherit;font-size:.75rem;font-weight:700;border:1px solid var(--line);background:transparent;color:var(--accent);border-radius:99px;padding:3px 10px;cursor:pointer}
+.mini[aria-expanded="true"]{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.panel{margin-top:8px;padding:10px 12px;border-radius:10px;background:var(--bg);font-size:.9rem}
+.panel h4{margin:0 0 4px;font-size:.8rem;text-transform:uppercase;letter-spacing:.05em;color:var(--muted)}
+.panel ul,.panel ol{margin:0 0 8px;padding-left:1.2em;display:flex;flex-direction:column;gap:3px}
+.panel .opt{display:block;width:100%;text-align:left;font:inherit;font-size:.88rem;border:1px solid var(--line);background:var(--surface);color:var(--ink);border-radius:8px;padding:8px 10px;margin-top:6px;cursor:pointer}
+.panel .opt b{color:var(--muted);font-size:.75rem;text-transform:uppercase;letter-spacing:.05em;display:block}
+.swapped{font-size:.75rem;color:var(--wod);font-weight:700}
+.bilan{display:flex;flex-direction:column;gap:8px}
+.bilan .big{font-family:var(--f-display);font-size:1.6rem;font-weight:800;font-variant-numeric:tabular-nums}
+.bilan .rows{display:grid;grid-template-columns:auto 1fr auto;gap:6px 10px;align-items:center;font-size:.85rem}
+.bilan .rows .bar{height:6px}
+.chart{width:100%;height:auto;display:block;margin-top:10px}
+.chart text{fill:var(--muted);font-size:10px;font-family:var(--f-body)}
+.legend{display:flex;gap:14px;flex-wrap:wrap;font-size:.75rem;color:var(--muted);margin-top:4px}
+.legend i{display:inline-block;width:12px;height:8px;border-radius:2px;margin-right:4px;vertical-align:0}
 @media (prefers-reduced-motion: reduce){*{transition:none!important}}
 </style>
 
@@ -233,9 +250,31 @@ function adapt(text){
   return out + manque.map(a=>`<span class="flag">contient : ${esc(a)}</span>`).join("");
 }
 
-function mealRow(w, key, hour, label, text){
+function recetteDe(txt){ return txt && state.recettes ? state.recettes[txt] : null; }
+function platDuJour(w, j, kind){
+  const sw = (suivi(w.id).swaps||{})[j.j+"-"+kind];
+  const src = sw ? (w.jours||[]).find(x=>x.j===sw) : null;
+  return src ? {txt: src[kind==="dej"?"dejeuner":"diner"], from: sw} : {txt: j[kind==="dej"?"dejeuner":"diner"], from: null};
+}
+function mealExtras(w, j, kind){
+  const key = j.j+"-"+kind, uid = w.id+":"+key;
+  const plat = platDuJour(w, j, kind), rec = recetteDe(plat.txt);
+  const openR = state.open===uid+":r", openS = state.open===uid+":s";
+  let html = plat.from ? `<div class="swapped">Échangé avec ${JOURS[plat.from].toLowerCase()}</div>` : "";
+  html += `<div class="acts">${rec?`<button class="mini" data-open="${uid}:r" aria-expanded="${openR}">Recette${rec.temps?" · "+esc(rec.temps):""}</button>`:""}<button class="mini" data-open="${uid}:s" aria-expanded="${openS}">Échanger</button></div>`;
+  if (openR && rec) html += `<div class="panel">${(rec.ingredients||[]).length?`<h4>Ingrédients</h4><ul>${rec.ingredients.map(x=>`<li>${adapt(x)}</li>`).join("")}</ul>`:""}${(rec.etapes||[]).length?`<h4>Étapes</h4><ol>${rec.etapes.map(x=>`<li>${adapt(x)}</li>`).join("")}</ol>`:""}</div>`;
+  if (openS){
+    const champ = kind==="dej"?"dejeuner":"diner";
+    const opts = (w.jours||[]).filter(x=>x.j!==j.j && x[champ] && x[champ]!==plat.txt);
+    const vus = new Set();
+    html += `<div class="panel"><h4>Remplacer par un ${kind==="dej"?"déjeuner":"dîner"} de la semaine</h4>${opts.filter(x=>!vus.has(x[champ]) && vus.add(x[champ])).map(x=>`<button class="opt" data-swap="${key}" data-src="${x.j}"><b>${JOURS[x.j]}</b>${adapt(x[champ])}</button>`).join("")}${plat.from?`<button class="opt" data-swap="${key}" data-src=""><b>Revenir au plat prévu</b>${adapt(j[champ])}</button>`:""}</div>`;
+  }
+  return html;
+}
+
+function mealRow(w, key, hour, label, text, extras){
   const done = !!(suivi(w.id).faits||{})[key];
-  return `<li class="meal ${done?"is-done":""}"><span class="hour">${hour}</span><div class="what"><b>${label}</b><p>${adapt(text)}</p></div>
+  return `<li class="meal ${done?"is-done":""}"><span class="hour">${hour}</span><div class="what"><b>${label}</b><p>${adapt(text)}</p>${extras||""}</div>
     <button class="tick" role="checkbox" aria-checked="${done}" aria-label="${label} fait" data-fait="${key}">${CHECK}</button></li>`;
 }
 
@@ -248,10 +287,10 @@ function dayCard(w, j, isToday){
       <button class="chip" data-t="${t}" data-type="${j.j}" aria-label="Type de journée : ${TYPE_LBL[t]}. Toucher pour changer">${TYPE_LBL[t]}</button></div>
     <ul class="meals">
       ${mealRow(w, j.j+"-pdj","7 h","Petit-déj",petitDej(t))}
-      ${mealRow(w, j.j+"-dej","12 h","Déjeuner",j.dejeuner)}
+      ${mealRow(w, j.j+"-dej","12 h","Déjeuner",platDuJour(w,j,"dej").txt, mealExtras(w,j,"dej"))}
       ${mealRow(w, j.j+"-col","16 h 30","Collation",collation(t,j))}
       ${s?`<li class="meal"><span class="hour">18 h 30</span><div class="what"><b>Séance</b><p>${esc(s)}</p></div><span></span></li>`:""}
-      ${mealRow(w, j.j+"-din","20 h","Dîner",j.diner + (state.profil?.portions?.diner ? " · "+state.profil.portions.diner : ""))}
+      ${mealRow(w, j.j+"-din","20 h","Dîner",platDuJour(w,j,"din").txt + (state.profil?.portions?.diner ? " · "+state.profil.portions.diner : ""), mealExtras(w,j,"din"))}
       ${collationSoir(t,j) ? mealRow(w, j.j+"-soir","21 h 30","Collation du soir",collationSoir(t,j).replace(/\s*\(vers 21 h 30\)/,"")) : ""}
     </ul></section>`;
 }
@@ -305,10 +344,61 @@ function viewPoids(){
     else if (jours>=6) alert = `<p class="note" style="margin:10px 0 0">Rythme actuel : ${parSem>=0?"+":""}${kg(parSem)} kg par semaine (objectif +0,2 à 0,3).</p>`;
   }
   const rule = (state.profil && state.profil.suivi_poids) || "Pèse-toi une fois par semaine, le matin à jeun.";
+  let chart = "";
+  if (dates.length >= 2){
+    const W=320, H=170, L=34, R=10, T=10, B=24;
+    const t0 = new Date(dates[0]).getTime(), t1 = Math.max(new Date(dates[dates.length-1]).getTime(), t0 + 14*864e5);
+    const wk = t => (t - t0)/(7*864e5);
+    const e0 = e[dates[0]], wmax = wk(t1);
+    const vals = dates.map(d=>e[d]).concat([e0 + 0.3*wmax, e0]);
+    let lo = Math.floor((Math.min(...vals)-0.3)*2)/2, hi = Math.ceil((Math.max(...vals)+0.3)*2)/2;
+    const x = t => L + (t - t0)/(t1 - t0)*(W-L-R), y = v => T + (hi - v)/(hi - lo)*(H-T-B);
+    const band = `${x(t0)},${y(e0+0.2*0)} ${x(t1)},${y(e0+0.2*wmax)} ${x(t1)},${y(e0+0.3*wmax)} ${x(t0)},${y(e0)}`;
+    const ticks = []; for (let v=lo; v<=hi+1e-9; v+=0.5) ticks.push(v);
+    const step = Math.max(1, Math.ceil(ticks.length/5));
+    const pts = dates.map(d=>[x(new Date(d).getTime()), y(e[d])]);
+    chart = `<svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Courbe du poids">
+      ${ticks.filter((_,i)=>i%step===0).map(v=>`<line x1="${L}" x2="${W-R}" y1="${y(v)}" y2="${y(v)}" stroke="var(--line)" stroke-width="1"/><text x="${L-6}" y="${y(v)+3}" text-anchor="end">${kg(v)}</text>`).join("")}
+      <polygon points="${band}" fill="var(--course-bg)" stroke="none"/>
+      <polyline points="${pts.map(p=>p.join(",")).join(" ")}" fill="none" stroke="var(--accent)" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>
+      ${pts.map((p,i)=>`<circle cx="${p[0]}" cy="${p[1]}" r="${i===pts.length-1?4.5:3}" fill="${i===pts.length-1?"var(--accent)":"var(--surface)"}" stroke="var(--accent)" stroke-width="2"/>`).join("")}
+      <text x="${L}" y="${H-6}">${fmtShort(addDays(dates[0],0))}</text><text x="${W-R}" y="${H-6}" text-anchor="end">${fmtShort(new Date(t1))}</text>
+    </svg><div class="legend"><span><i style="background:var(--course-bg)"></i>Zone visée (+0,2 à 0,3 kg/sem.)</span><span><i style="background:var(--accent)"></i>Tes pesées</span></div>`;
+  } else if (dates.length === 1){
+    chart = `<p class="note" style="margin:10px 0 0">La courbe apparaît dès ta deuxième pesée.</p>`;
+  }
   return `<section class="card poids"><h3>Pesée de la semaine</h3><p class="note" style="margin:0 0 10px">${esc(rule)}</p>
     <form id="poids-form"><label for="poids-kg" class="note">Poids (kg)</label><input id="poids-kg" type="number" inputmode="decimal" step="0.1" min="30" max="150" placeholder="62,0" required><button class="btn" type="submit">Enregistrer</button></form>
     ${last.length?`<ul class="hist">${last.map(d=>`<li>${fmtShort(addDays(d,0))} <b>${kg(e[d])} kg</b></li>`).join("")}</ul>`:""}
+    ${chart}
     ${alert}</section>`;
+}
+
+const CATS = [["pdj","Petit-déj"],["dej","Déjeuner"],["col","Collation"],["din","Dîner"],["soir","Collation du soir"]];
+const FEM = {col:true, soir:true};
+function viewBilan(w){
+  const today = iso(new Date());
+  if (!w.debut || today < w.debut) return "";
+  const faits = suivi(w.id).faits || {};
+  const stats = {}; CATS.forEach(([k])=>stats[k]={fait:0,total:0});
+  let jours = 0;
+  (w.jours||[]).forEach(j=>{
+    const d = iso(addDays(w.debut, ORDRE.indexOf(j.j)));
+    if (d > today) return;
+    jours++;
+    const t = dayType(w,j);
+    CATS.forEach(([k])=>{ if (k==="soir" && !collationSoir(t,j)) return; stats[k].total++; if (faits[j.j+"-"+k]) stats[k].fait++; });
+  });
+  if (!jours) return "";
+  const tot = CATS.reduce((a,[k])=>a+stats[k].total,0), ok = CATS.reduce((a,[k])=>a+stats[k].fait,0);
+  const manques = CATS.filter(([k])=>stats[k].total>=2 && stats[k].total-stats[k].fait>=2 && (stats[k].total-stats[k].fait)/stats[k].total>=0.4);
+  const remarque = !ok ? "Coche tes repas au fil de la journée pour voir ton bilan."
+    : manques.length ? manques.map(([k,l])=>`${l} manqué${FEM[k]?"e":""} ${stats[k].total-stats[k].fait} fois sur ${stats[k].total}`).join(" · ") + ". " + (manques.some(([k])=>k==="col") ? "Garde ta banane et ta barre dans ton sac pour 16 h 30." : manques.some(([k])=>k==="pdj") ? "Prépare ton bol la veille pour gagner du temps le matin." : manques.some(([k])=>k==="soir") ? "Mets le skyr bien en vue dans le frigo après la séance." : "Prévois une solution de secours rapide pour ce repas.")
+    : "Rien de souvent manqué, continue comme ça.";
+  return `<section class="card bilan"><h3 style="font-family:var(--f-display);margin:0;font-size:1rem">Bilan de la semaine${w.debut && iso(addDays(w.debut,6))>=today?" (en cours)":""}</h3>
+    <div><span class="big">${ok} / ${tot}</span> <span class="note">repas suivis sur ${jours} jour${jours>1?"s":""}</span></div>
+    <div class="rows">${CATS.filter(([k])=>stats[k].total).map(([k,l])=>`<span>${l}</span><div class="bar"><i style="width:${Math.round(100*stats[k].fait/stats[k].total)}%"></i></div><span class="count">${stats[k].fait}/${stats[k].total}</span>`).join("")}</div>
+    <p class="note" style="margin:0">${remarque}</p></section>`;
 }
 
 function viewSemaine(w){
@@ -319,6 +409,7 @@ function viewSemaine(w){
   const resume = TYPES.filter(t=>counts[t]).map(t=>counts[t]+" "+TYPE_LBL[t].toLowerCase().replace("wod","WOD")).join(" · ");
   return `<h2>${esc(w.theme || "Semaine "+w.num)}</h2>
     <p class="sub">${resume}. Touche une étiquette pour l'ajuster à ta semaine réelle.</p>
+    ${viewBilan(w)}
     ${(w.jours||[]).map((j,i)=>dayCard(w,j, w.debut && iso(addDays(w.debut,ORDRE.indexOf(j.j)))===todayIso)).join("")}`;
 }
 
@@ -396,6 +487,8 @@ document.addEventListener("click", e=>{
     return;
   }
   const w = state.weeks[state.week]; if (!w) return;
+  if (t.dataset.open){ state.open = state.open===t.dataset.open ? null : t.dataset.open; render(); return; }
+  if (t.dataset.swap){ write(w.id,{swaps:{[t.dataset.swap]: t.dataset.src}}); state.open=null; render(); return; }
   if (t.dataset.fait){ const k=t.dataset.fait; write(w.id,{faits:{[k]:!(suivi(w.id).faits||{})[k]}}); return; }
   if (t.dataset.type){ const j=(w.jours||[]).find(x=>x.j===t.dataset.type); const cur=dayType(w,j); const nxt=TYPES[(TYPES.indexOf(cur)+1)%TYPES.length]; write(w.id,{types:{[j.j]:nxt}}); return; }
   const row = e.target.closest(".row");
@@ -433,7 +526,7 @@ render();
 const LS="carnet-suivi";
 try{ state.suivi = JSON.parse(localStorage.getItem(LS)||"{}"); }catch(_){ state.suivi={}; }
 function applyData(d){
-  state.weeks={}; (d.semaines||[]).forEach(x=>state.weeks[x.id]=x); state.profil=d.profil||null;
+  state.weeks={}; (d.semaines||[]).forEach(x=>state.weeks[x.id]=x); state.profil=d.profil||null; state.recettes=d.recettes||{};
   if(!state.ready){ state.ready=true; state.week=currentWeekId()||"s1"; }
   render();
 }
