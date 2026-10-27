@@ -174,12 +174,12 @@ function dayType(w, j){ return (suivi(w.id).types||{})[j.j] || j.type || "repos"
 
 function petitDej(t){
   return (t==="course"||t==="wod") ? "70 g de flocons d'avoine, 30 g d'amandes, 20-30 g de chia, 200 g de fromage blanc, 2 cc de miel + 1 fruit"
-                      : "50 g de flocons d'avoine, 30 g d'amandes, 20-30 g de chia, 200 g de fromage blanc, 2 cc de miel + 1 fruit";
+                      : "50 g de flocons d'avoine, 30 g d'amandes, 20-30 g de chia, 200 g de fromage blanc, 2 cc de miel + 1 fruit" + (t==="repos" ? " + 20 g de noix dans le fromage blanc" : "");
 }
 function collation(t, j){
   if (j.collation && t===(j.type||t)) return j.collation;
   const C = state.profil && state.profil.collations; if (C && C[t]) return C[t];
-  return t==="repos" ? "1 pomme, 30 g de fruits secs, 20 g de noix" : t==="renfo" ? "1 banane, 2 galettes de riz au beurre de cacahuète, 20 g d'amandes" : "1 banane + 2 tranches de pain d'épices";
+  return t==="repos" ? "1 pomme + 1 barre de céréales" : "1 banane + 1 barre de céréales";
 }
 function collationSoir(t, j){
   if (t!=="renfo" && t!=="wod") return null;
