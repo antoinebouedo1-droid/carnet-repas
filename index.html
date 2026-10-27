@@ -128,6 +128,13 @@ nav.tabs button[aria-current="page"]{color:var(--accent);font-weight:700}
 .boite ul{margin:0;padding-left:1.1em;display:flex;flex-direction:column;gap:3px}
 .acts{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px}
 .mini{font:inherit;font-size:.75rem;font-weight:700;border:1px solid var(--line);background:transparent;color:var(--accent);border-radius:99px;padding:3px 10px;cursor:pointer}
+.mini[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.row .mini{margin-left:auto;flex:none}
+.placard li{display:flex;align-items:center;gap:8px;padding:6px 0;border-top:1px solid var(--line)}
+.placard li:first-child{border-top:0}
+.placard ul{list-style:none;margin:8px 0 0;padding:0}
+.ravito form{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.ravito input{font:inherit;width:6em;padding:8px;border:1px solid var(--line);border-radius:10px;background:var(--surface);color:var(--ink)}
 .mini[aria-expanded="true"]{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
 .panel{margin-top:8px;padding:10px 12px;border-radius:10px;background:var(--bg);font-size:.9rem}
 .panel h4{margin:0 0 4px;font-size:.8rem;text-transform:uppercase;letter-spacing:.05em;color:var(--muted)}
@@ -232,6 +239,15 @@ let GOUTS=[]; try{ GOUTS=JSON.parse(localStorage.getItem(GK)||"[]"); }catch(_){ 
 function saveGouts(){ try{ localStorage.setItem(GK, JSON.stringify(GOUTS)); }catch(_){} }
 const SUGG = {"saumon":"cabillaud","thon":"sardines","poulet":"dinde","dinde":"poulet","boeuf":"porc","bœuf":"dinde","jambon":"blanc de poulet","quinoa":"boulgour","boulgour":"quinoa","semoule":"riz","lentilles":"pois chiches","lentilles corail":"lentilles vertes","pois chiches":"haricots blancs","haricots rouges":"haricots blancs","brocoli":"haricots verts","brocolis":"haricots verts","épinards":"haricots verts","champignons":"courgettes","courgettes":"haricots verts","poivron":"carotte","poivrons":"carottes","butternut":"patate douce","patate douce":"pommes de terre","patates douces":"pommes de terre","avocat":"concombre","feta":"mozzarella","comté":"emmental","parmesan":"emmental","fromage blanc":"skyr","yaourt grec":"skyr","œufs":"tofu","oeufs":"tofu","lait de coco":"crème légère","gnocchis":"pâtes","tortillas":"pain pita","chia":"graines de lin","amandes":"noisettes","beurre de cacahuète":"purée d'amande","pain d'épices":"barre de céréales","kiwis":"oranges","bananes":"compotes","banane":"compote","oignons rouges":"oignons jaunes","mozzarella":"feta","pesto":"sauce tomate","maïs":"petits pois","carottes":"poivrons","tomates cerises":"concombre","chili":"curry"};
 const ACC = {a:"aàâä",e:"eéèêë",i:"iîï",o:"oôöœ",u:"uùûü",c:"cç"};
+const PK="carnet-placard", NK="carnet-notes";
+let PLACARD={}, NOTES={};
+try{ PLACARD=JSON.parse(localStorage.getItem(PK)||"{}"); }catch(_){ PLACARD={}; }
+try{ NOTES=JSON.parse(localStorage.getItem(NK)||"{}"); }catch(_){ NOTES={}; }
+function saveKey(k,v){ try{ localStorage.setItem(k, JSON.stringify(v)); }catch(_){} }
+function aliment(label){
+  return norm(label.replace(/\([^)]*\)/g,"")).replace(/^[\d,.\s]+(kg|g|l|cl|ml)?\s+/,"").replace(/^(petite?s?|grosse?s?)\s+/,"")
+    .replace(/^(pots?|sachets?|boites?|bocal|bocaux|briques?|paquets?|barquettes?|tetes?|tranches?|filets?|paves?)\s+/,"").replace(/^(de\s+|d['’])/,"").replace(/s$/,"").trim();
+}
 function norm(x){ return x.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/œ/g,"oe").trim(); }
 function pattern(word){
   let w = norm(word).replace(/(es|s|x)$/,"");
@@ -261,7 +277,7 @@ function mealExtras(w, j, kind){
   const plat = platDuJour(w, j, kind), rec = recetteDe(plat.txt);
   const openR = state.open===uid+":r", openS = state.open===uid+":s";
   let html = plat.from ? `<div class="swapped">Échangé avec ${JOURS[plat.from].toLowerCase()}</div>` : "";
-  html += `<div class="acts">${rec?`<button class="mini" data-open="${uid}:r" aria-expanded="${openR}">Recette${rec.temps?" · "+esc(rec.temps):""}</button>`:""}<button class="mini" data-open="${uid}:s" aria-expanded="${openS}">Échanger</button></div>`;
+  html += `<div class="acts">${rec?`<button class="mini" data-open="${uid}:r" aria-expanded="${openR}">Recette${rec.temps?" · "+esc(rec.temps):""}</button>`:""}<button class="mini" data-open="${uid}:s" aria-expanded="${openS}">Échanger</button>${["top","bof"].map(n=>`<button class="mini" data-note="${n}" data-plat="${esc(plat.txt)}" aria-pressed="${NOTES[plat.txt]===n}">${n==="top"?"J'adore":"Bof"}</button>`).join("")}</div>`;
   if (openR && rec) html += `<div class="panel">${(rec.ingredients||[]).length?`<h4>Ingrédients</h4><ul>${rec.ingredients.map(x=>`<li>${adapt(x)}</li>`).join("")}</ul>`:""}${(rec.etapes||[]).length?`<h4>Étapes</h4><ol>${rec.etapes.map(x=>`<li>${adapt(x)}</li>`).join("")}</ol>`:""}</div>`;
   if (openS){
     const champ = kind==="dej"?"dejeuner":"diner";
@@ -320,7 +336,28 @@ function viewJour(w){
     <p class="note">Touche l'étiquette ${TYPE_LBL[t]} pour changer le type de journée : le petit-déj, la collation et les repères s'adaptent.</p>
     ${state.profil?.objectif ? `<section class="card"><h3 style="font-family:var(--f-display);margin:0 0 4px;font-size:1rem">Objectif prise de masse</h3><p class="note" style="margin:0 0 6px">${esc(state.profil.objectif)}</p>${state.profil.portions?`<ul class="note" style="margin:0;padding-left:1.1em">${[["Petit-déj",state.profil.portions.petit_dejeuner],["Déjeuner",state.profil.portions.dejeuner],["Dîner",state.profil.portions.diner]].filter(x=>x[1]).map(x=>`<li><b>${x[0]} :</b> ${esc(x[1])}</li>`).join("")}</ul>`:""}</section>` : ""}
     ${(state.profil?.conseils||[]).length ? `<section class="card"><h3 style="font-family:var(--f-display);margin:0 0 6px;font-size:1rem">Repères du quotidien</h3><ul class="note" style="margin:0;padding-left:1.1em;display:flex;flex-direction:column;gap:4px">${state.profil.conseils.map(c=>`<li>${esc(c)}</li>`).join("")}</ul></section>` : ""}
+    ${viewRavito()}
     ${viewPoids()}`;
+}
+function hm(min){ const h=Math.floor(min/60), m=Math.round(min%60); return h ? h+" h"+(m?" "+String(m).padStart(2,"0"):"") : m+" min"; }
+function ravito(min){
+  if (!(min>0)) return "";
+  if (min<=75) return `<p class="note" style="margin:10px 0 0">${hm(min)} : pas besoin de ravito. Ta collation de 16 h 30 et une gourde d'eau suffisent.</p>`;
+  const h = min/60, total = Math.round(45*h), ban = total>=100?2:1, bar = Math.max(0, Math.round((total-25*ban)/22)), gourdes = Math.ceil(h);
+  const quoi = [ban+" banane"+(ban>1?"s":""), bar?bar+" barre"+(bar>1?"s":"")+" de céréales":""].filter(Boolean).join(" + ");
+  return `<div style="margin-top:10px"><p style="margin:0"><b>${hm(min)} : ${quoi}</b></p>
+    <ul class="note" style="margin:6px 0 0;padding-left:1.1em;display:flex;flex-direction:column;gap:4px">
+    <li>Objectif : ${Math.round(30*h)} à ${Math.round(60*h)} g de glucides (30 à 60 g par heure). Ici environ ${25*ban+22*bar} g.</li>
+    <li>Banane ≈ 25 g, barre de céréales ≈ 20 à 25 g de glucides.</li>
+    <li>Commence à manger après 30 à 45 min, puis un morceau toutes les 30 à 40 min.</li>
+    <li>Eau : environ 500 ml par heure, soit ${gourdes} gourde${gourdes>1?"s":""} de 500 ml (remplis en route si besoin).</li>
+    ${bar+ban>2?`<li>Pense à ajouter ces barres et bananes en plus aux courses.</li>`:""}</ul></div>`;
+}
+function viewRavito(){
+  return `<section class="card ravito"><h3 style="font-family:var(--f-display);margin:0 0 4px;font-size:1rem">Ravito sortie longue</h3>
+    <p class="note" style="margin:0 0 10px">Entre la durée prévue de ta sortie : au-delà de 1 h 15, l'appli te dit quoi emporter.</p>
+    <form id="ravito-form"><label for="ravito-min" class="note">Durée (minutes)</label><input id="ravito-min" type="number" inputmode="numeric" min="10" max="600" step="5" placeholder="105" value="${state.ravito||""}"></form>
+    <div id="ravito-out">${ravito(state.ravito)}</div></section>`;
 }
 
 const DEF_REPERES = {
@@ -329,21 +366,29 @@ const DEF_REPERES = {
   repos:{kcal:[2550,2700],glucides_g:[280,310],proteines_g:[110,125]},
   wod:{kcal:[2900,3100],glucides_g:[340,370],proteines_g:[115,130]}};
 const kg = v => Number(v).toLocaleString("fr-FR",{maximumFractionDigits:1});
+function rythme(){
+  const e = (state.suivi.poids||{}).entries || {};
+  const dates = Object.keys(e).filter(d=>typeof e[d]==="number").sort();
+  if (dates.length<2) return null;
+  const ld = dates[dates.length-1], ref = dates.find(d=>d>=iso(addDays(ld,-17)) && d<ld) || dates[dates.length-2];
+  const jours = (new Date(ld) - new Date(ref))/864e5;
+  return {jours, parSem: jours>0 ? (e[ld]-e[ref])/jours*7 : 0};
+}
+function conseilBalance(){
+  const r = rythme();
+  if (!r || r.jours<13) return {cls:"note", txt:"Pèse-toi une fois par semaine : après 2 semaines, l'appli te dira s'il faut ajuster tes portions."};
+  const v = (r.parSem>=0?"+":"")+kg(r.parSem)+" kg par semaine";
+  if (r.parSem<0.2) return {cls:"alert", txt:`Balance : ${v} sur 2 semaines, c'est sous l'objectif (+0,2 à 0,3). Ajoute une portion : +20 g de riz ou de pâtes crus au déjeuner.`};
+  if (r.parSem>0.4) return {cls:"alert", txt:`Balance : ${v} sur 2 semaines, c'est un peu rapide. Retire une portion : 20 g de riz ou de pâtes crus en moins au déjeuner.`};
+  return {cls:"note", txt:`Balance : ${v} sur 2 semaines, c'est le bon rythme. Ne change rien.`};
+}
 function viewPoids(){
   const e = (state.suivi.poids||{}).entries || {};
   const dates = Object.keys(e).filter(d=>typeof e[d]==="number").sort();
   const last = dates.slice(-5);
   let alert = "";
-  if (dates.length>=2){
-    const ld = dates[dates.length-1]; const lim = iso(addDays(ld,-21));
-    const ref = dates.find(d=>d>=lim && d<ld) || dates[dates.length-2];
-    const jours = (new Date(ld) - new Date(ref))/864e5;
-    const parSem = jours>0 ? (e[ld]-e[ref])/jours*7 : 0;
-    if (jours>=20 && parSem<0.1) alert = `<p class="alert">Pas de prise depuis 3 semaines : ajoute environ 200 kcal, par exemple fromage blanc + granola le soir.</p>`;
-    else if (jours>=13 && parSem>0.5) alert = `<p class="alert">Tu prends ${kg(parSem)} kg par semaine, c'est un peu rapide : retire le pain du dîner.</p>`;
-    else if (jours>=6) alert = `<p class="note" style="margin:10px 0 0">Rythme actuel : ${parSem>=0?"+":""}${kg(parSem)} kg par semaine (objectif +0,2 à 0,3).</p>`;
-  }
-  const rule = (state.profil && state.profil.suivi_poids) || "Pèse-toi une fois par semaine, le matin à jeun.";
+  if (dates.length>=2){ const c = conseilBalance(); alert = `<p class="${c.cls}" style="margin:10px 0 0">${esc(c.txt)}</p>`; }
+  const rule = "Pèse-toi une fois par semaine, le matin à jeun. Objectif +0,2 à 0,3 kg par semaine : l'appli te dit s'il faut ajouter ou retirer une portion.";
   let chart = "";
   if (dates.length >= 2){
     const W=320, H=170, L=34, R=10, T=10, B=24;
@@ -398,7 +443,8 @@ function viewBilan(w){
   return `<section class="card bilan"><h3 style="font-family:var(--f-display);margin:0;font-size:1rem">Bilan de la semaine${w.debut && iso(addDays(w.debut,6))>=today?" (en cours)":""}</h3>
     <div><span class="big">${ok} / ${tot}</span> <span class="note">repas suivis sur ${jours} jour${jours>1?"s":""}</span></div>
     <div class="rows">${CATS.filter(([k])=>stats[k].total).map(([k,l])=>`<span>${l}</span><div class="bar"><i style="width:${Math.round(100*stats[k].fait/stats[k].total)}%"></i></div><span class="count">${stats[k].fait}/${stats[k].total}</span>`).join("")}</div>
-    <p class="note" style="margin:0">${remarque}</p></section>`;
+    <p class="note" style="margin:0">${remarque}</p>
+    ${(c=>`<p class="${c.cls}" style="margin:0">${esc(c.txt)}</p>`)(conseilBalance())}</section>`;
 }
 
 function viewSemaine(w){
@@ -416,15 +462,17 @@ function viewSemaine(w){
 function viewCourses(w){
   if (!w || w.placeholder) return emptyWeek(w?w.num:1);
   const coches = suivi(w.id).coches || {};
-  const all = (w.courses||[]).flatMap(r=>r.items||[]);
+  const enStock = i => PLACARD[aliment(i.label)];
+  const all = (w.courses||[]).flatMap(r=>r.items||[]).filter(i=>!enStock(i));
+  const stock = (w.courses||[]).flatMap(r=>r.items||[]).filter(enStock);
   const n = all.filter(i=>coches[i.id]).length;
   const pct = all.length ? Math.round(100*n/all.length) : 0;
   const rayons = (w.courses||[]).map(r=>{
-    const items = (r.items||[]).filter(i=>!(state.hideDone && coches[i.id]));
+    const items = (r.items||[]).filter(i=>!enStock(i) && !(state.hideDone && coches[i.id]));
     if (!items.length) return "";
     return `<section class="card rayon"><h3>${esc(r.rayon)}</h3>${items.map(i=>{
       const on = !!coches[i.id];
-      return `<div class="row ${on?"is-done":""}" data-coche="${esc(i.id)}"><button class="tick" role="checkbox" aria-checked="${on}" aria-label="${esc(i.label)}">${CHECK}</button><span class="lbl">${adapt(i.label)}</span></div>`;
+      return `<div class="row ${on?"is-done":""}" data-coche="${esc(i.id)}"><button class="tick" role="checkbox" aria-checked="${on}" aria-label="${esc(i.label)}">${CHECK}</button><span class="lbl">${adapt(i.label)}</span><button class="mini" data-placard="${esc(i.label)}" aria-label="J'en ai déjà : ${esc(i.label)}">J'en ai</button></div>`;
     }).join("")}</section>`;
   }).join("");
   return `<h2>Liste de courses</h2>
@@ -436,7 +484,10 @@ function viewCourses(w){
         ? `<button class="btn warn" id="reset-yes">Oui, tout décocher</button><button class="btn" id="reset-no">Annuler</button>`
         : `<button class="btn" id="reset">Tout décocher</button>`}
     </div>
-    ${rayons || (n? `<div class="card empty"><b>Tout est dans le panier</b>Bonnes courses terminées.</div>` : "")}`;
+    ${rayons || (n? `<div class="card empty"><b>Tout est dans le panier</b>Bonnes courses terminées.</div>` : "")}
+    <section class="card placard"><h3 style="font-family:var(--f-display);margin:0;font-size:1rem">Déjà dans le placard (${stock.length})</h3>
+    <p class="note" style="margin:4px 0 0">Touche « J'en ai » sur un article que tu as encore (miel, chia, épices…). Il disparaît de la liste, cette semaine et les suivantes, jusqu'à ce que tu le remettes.</p>
+    ${stock.length?`<ul>${stock.map(i=>`<li><span class="lbl">${adapt(i.label)}</span><button class="mini" style="margin-left:auto" data-unplacard="${esc(i.label)}">Remettre</button></li>`).join("")}</ul>`:""}</section>`;
 }
 
 function viewBatch(w){
@@ -463,6 +514,19 @@ function viewGouts(){
     <textarea id="gout-txt" readonly hidden style="width:100%;margin-top:10px;font:inherit" rows="4"></textarea></section>`
     : `<div class="card empty"><b>Aucun aliment pour l'instant</b>Ajoute le premier ci-dessus : par exemple « champignons », remplacés par « courgettes ».</div>`}`;
 }
+function viewNotes(){
+  const top = Object.keys(NOTES).filter(k=>NOTES[k]==="top"), bof = Object.keys(NOTES).filter(k=>NOTES[k]==="bof");
+  const liste = (arr,l)=>arr.length?`<h4 style="margin:10px 0 4px">${l} (${arr.length})</h4><ul class="note" style="margin:0;padding-left:1.1em">${arr.map(x=>`<li>${esc(x)}</li>`).join("")}</ul>`:"";
+  return `<h2>Mes plats notés</h2>
+    <section class="card"><p class="note" style="margin:0">Sous chaque déjeuner et dîner, touche « J'adore » ou « Bof ». Je m'en sers pour les prochains cycles : plus de plats que tu aimes, moins de ceux qui ne te plaisent pas.</p>
+    ${liste(top,"J'adore")}${liste(bof,"Bof")}
+    ${top.length+bof.length?`<p style="margin:12px 0 0"><button class="btn" id="note-copy">Copier mes notes pour Claude</button> <span class="note" id="note-msg"></span></p>
+    <textarea id="note-txt" readonly hidden style="width:100%;margin-top:10px;font:inherit" rows="4"></textarea>`:""}</section>`;
+}
+function notesTexte(){
+  const f = n => Object.keys(NOTES).filter(k=>NOTES[k]===n);
+  return [f("top").length?"Plats que j'adore : "+f("top").join(" ; ")+".":"", f("bof").length?"Plats bof : "+f("bof").join(" ; ")+".":""].filter(Boolean).join("\n");
+}
 function goutsTexte(){ return "Aliments que je n'aime pas : " + GOUTS.map(g=>g.a+(g.r?" (remplacé par "+g.r+")":"")).join(", ") + "."; }
 
 function render(){
@@ -471,7 +535,7 @@ function render(){
   const v = document.getElementById("view");
   if (!state.ready){ v.innerHTML = `<div class="card empty"><b>Ton carnet se charge</b>Tes menus, ta liste de courses et le batch du dimanche apparaissent dans un instant.</div>`; return; }
   const w = state.weeks[state.week] || {id:state.week, num:Number(String(state.week||"s1").slice(1)), placeholder:true};
-  v.innerHTML = ({jour:viewJour, semaine:viewSemaine, courses:viewCourses, batch:viewBatch, gouts:viewGouts}[state.tab] || viewJour)(w);
+  v.innerHTML = ({jour:viewJour, semaine:viewSemaine, courses:viewCourses, batch:viewBatch, gouts:w=>viewGouts()+viewNotes()}[state.tab] || viewJour)(w);
 }
 
 document.addEventListener("click", e=>{
@@ -480,8 +544,11 @@ document.addEventListener("click", e=>{
   if (t.dataset.tab){ state.tab = t.dataset.tab; state.confirmReset=false; try{localStorage.setItem("tab",state.tab)}catch(_){} render(); window.scrollTo(0,0); return; }
   if (t.dataset.week){ state.week = t.dataset.week; state.confirmReset=false; render(); return; }
   if (t.dataset.gdel){ GOUTS.splice(Number(t.dataset.gdel),1); saveGouts(); render(); return; }
-  if (t.id==="gout-copy"){
-    const txt = goutsTexte(), msg = document.getElementById("gout-msg"), ta = document.getElementById("gout-txt");
+  if (t.dataset.note){ const p=t.dataset.plat; if (NOTES[p]===t.dataset.note) delete NOTES[p]; else NOTES[p]=t.dataset.note; saveKey(NK,NOTES); render(); return; }
+  if (t.dataset.placard){ PLACARD[aliment(t.dataset.placard)]=true; saveKey(PK,PLACARD); render(); return; }
+  if (t.dataset.unplacard){ delete PLACARD[aliment(t.dataset.unplacard)]; saveKey(PK,PLACARD); render(); return; }
+  if (t.id==="gout-copy" || t.id==="note-copy"){
+    const k = t.id.split("-")[0], txt = k==="gout"?goutsTexte():notesTexte(), msg = document.getElementById(k+"-msg"), ta = document.getElementById(k+"-txt");
     const fallback = ()=>{ ta.hidden=false; ta.value=txt; ta.focus(); ta.select(); msg.textContent="Sélectionné : copie-le."; };
     try{ navigator.clipboard.writeText(txt).then(()=>{ msg.textContent="Copié. Colle-le dans la conversation avec Claude."; }, fallback); }catch(_){ fallback(); }
     return;
@@ -500,12 +567,14 @@ document.addEventListener("click", e=>{
 });
 
 document.addEventListener("input", e=>{
+  if (e.target.id==="ravito-min"){ state.ravito = Number(e.target.value)||0; document.getElementById("ravito-out").innerHTML = ravito(state.ravito); return; }
   if (e.target.id!=="gout-a") return;
   const r = document.getElementById("gout-r"); const sug = SUGG[e.target.value.trim().toLowerCase()];
   if (!r.value || r.value === r.dataset.sug){ r.value = sug || ""; }
   r.dataset.sug = sug || "";
 });
 document.addEventListener("submit", e=>{
+  if (e.target.id==="ravito-form"){ e.preventDefault(); e.target.querySelector("input").blur(); return; }
   if (e.target.id!=="gout-form") return;
   e.preventDefault();
   const a = document.getElementById("gout-a").value.trim(); const ri = document.getElementById("gout-r");
