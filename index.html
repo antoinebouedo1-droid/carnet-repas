@@ -150,11 +150,16 @@ nav.tabs button[aria-current="page"]{color:var(--accent);font-weight:700}
 .chart text{fill:var(--muted);font-size:10px;font-family:var(--f-body)}
 .legend{display:flex;gap:14px;flex-wrap:wrap;font-size:.75rem;color:var(--muted);margin-top:4px}
 .legend i{display:inline-block;width:12px;height:8px;border-radius:2px;margin-right:4px;vertical-align:0}
-.lien-courses{display:flex;flex-direction:column;gap:2px;text-decoration:none;color:var(--ink);border-color:#B4532A}
-.lien-courses b{font-family:var(--f-display);color:#B4532A}
-.lien-courses span{font-size:.85rem;color:var(--muted)}
-@media (prefers-color-scheme: dark){:root:not([data-theme="light"]) .lien-courses b{color:#EE9A72}}
-:root[data-theme="dark"] .lien-courses b{color:#EE9A72}
+.ajout form{display:flex;gap:8px}
+.ajout input{font:inherit;flex:1;min-width:0;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:var(--bg);color:var(--ink)}
+.cats,.habs{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px;align-items:center}
+.cat{font:inherit;font-size:.78rem;font-weight:700;border:1px solid var(--line);background:transparent;color:var(--muted);border-radius:99px;padding:5px 11px;cursor:pointer}
+.cat[aria-pressed="true"]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.habs .hl{font-size:.72rem;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.05em;width:100%}
+.hab{font:inherit;font-size:.85rem;border:1px dashed var(--accent);background:var(--course-bg);color:var(--ink);border-radius:99px;padding:4px 10px;cursor:pointer}
+.hab.edit{border-style:solid;border-color:var(--line);background:transparent;color:var(--muted)}
+.lk{font:inherit;font-size:.78rem;border:0;background:transparent;color:var(--accent);font-weight:700;cursor:pointer;padding:4px 6px}
+.row .x{margin-left:auto}
 @media (prefers-reduced-motion: reduce){*{transition:none!important}}
 </style>
 
@@ -464,14 +469,53 @@ function viewSemaine(w){
     ${(w.jours||[]).map((j,i)=>dayCard(w,j, w.debut && iso(addDays(w.debut,ORDRE.indexOf(j.j)))===todayIso)).join("")}`;
 }
 
+// Articles ajoutés à la main (entretien, beauté…), gardés d'une semaine à l'autre.
+const MK="courses-perso", HK="courses-habituels";
+const RAYONS_PERSO=[["alim","Alimentaire"],["entretien","Entretien"],["beaute","Hygiène & beauté"],["maison","Maison"],["autre","Autre"]];
+let PERSO=[], HAB={};
+try{ PERSO=JSON.parse(localStorage.getItem(MK)||"[]"); }catch(_){ PERSO=[]; }
+try{ HAB=JSON.parse(localStorage.getItem(HK)||"{}"); }catch(_){ HAB={}; }
+try{ state.cat=localStorage.getItem("courses-cat")||"alim"; }catch(_){ state.cat="alim"; }
+function ajouter(label, cat){
+  label=label.trim().replace(/\s+/g," "); if (!label) return;
+  const deja=PERSO.find(p=>norm(p.label)===norm(label));
+  if (deja){ deja.done=false; saveKey(MK,PERSO); return; }
+  PERSO.push({id:Date.now().toString(36)+Math.random().toString(36).slice(2,6), label, cat, done:false});
+  saveKey(MK,PERSO);
+  const k=norm(label); HAB[k]={label, cat, n:((HAB[k]||{}).n||0)+1}; saveKey(HK,HAB);
+}
+function habsHtml(){
+  const inp=document.getElementById("add-txt"), q=norm(inp?inp.value:"");
+  const surListe=new Set(PERSO.filter(p=>!p.done).map(p=>norm(p.label)));
+  let habs=Object.entries(HAB).filter(([k])=>!surListe.has(k) && (!q || k.includes(q))).sort((a,b)=>b[1].n-a[1].n || a[1].label.localeCompare(b[1].label));
+  const total=habs.length;
+  if (!total) return Object.keys(HAB).length||q ? "" : `<span class="note">Ce que tu ajoutes est retenu ici : la prochaine fois, un seul geste pour le remettre.</span>`;
+  if (!state.allHab && !q) habs=habs.slice(0,10);
+  return `<span class="hl">${q?"Déjà acheté":"Mes habituels"} · touche pour ${state.editHab?"oublier":"ajouter"}</span>`
+    + habs.map(([k,h])=>`<button type="button" class="hab ${state.editHab?"edit":""}" data-hab="${esc(k)}">${state.editHab?"× ":"+ "}${esc(h.label)}</button>`).join("")
+    + (!q && total>10 ? `<button type="button" class="lk" id="hab-all">${state.allHab?"Moins":"Tout voir ("+total+")"}</button>` : "")
+    + `<button type="button" class="lk" id="hab-edit">${state.editHab?"Terminé":"Modifier"}</button>`;
+}
+function texteListe(w){
+  const coches=suivi(w.id).coches||{}, blocs=[];
+  RAYONS_PERSO.forEach(([k,n])=>{ const it=PERSO.filter(p=>p.cat===k && !p.done); if (it.length) blocs.push(n+"\n"+it.map(p=>"- "+p.label).join("\n")); });
+  (w.courses||[]).forEach(r=>{ const it=(r.items||[]).filter(i=>!PLACARD[aliment(i.label)] && !coches[i.id]); if (it.length) blocs.push(r.rayon+"\n"+it.map(i=>"- "+adapt(i.label).replace(/<[^>]+>/g,"").replace(/&amp;/g,"&").replace(/&lt;/g,"<").replace(/&gt;/g,">").replace(/&quot;/g,'"')).join("\n")); });
+  return "Liste de courses\n\n"+blocs.join("\n\n");
+}
+
 function viewCourses(w){
   if (!w || w.placeholder) return emptyWeek(w?w.num:1);
   const coches = suivi(w.id).coches || {};
   const enStock = i => PLACARD[aliment(i.label)];
   const all = (w.courses||[]).flatMap(r=>r.items||[]).filter(i=>!enStock(i));
   const stock = (w.courses||[]).flatMap(r=>r.items||[]).filter(enStock);
-  const n = all.filter(i=>coches[i.id]).length;
-  const pct = all.length ? Math.round(100*n/all.length) : 0;
+  const n = all.filter(i=>coches[i.id]).length + PERSO.filter(p=>p.done).length;
+  const tot = all.length + PERSO.length;
+  const pct = tot ? Math.round(100*n/tot) : 0;
+  const persoCards = RAYONS_PERSO.map(([k,nom])=>{
+    const it = PERSO.filter(p=>p.cat===k && !(state.hideDone && p.done));
+    return it.length ? `<section class="card rayon"><h3>${nom}</h3>${it.map(p=>`<div class="row ${p.done?"is-done":""}" data-perso="${esc(p.id)}"><button class="tick" role="checkbox" aria-checked="${!!p.done}" aria-label="${esc(p.label)}">${CHECK}</button><span class="lbl">${esc(p.label)}</span><button class="x" data-del="${esc(p.id)}" aria-label="Retirer ${esc(p.label)}">×</button></div>`).join("")}</section>` : "";
+  }).join("");
   const rayons = (w.courses||[]).map(r=>{
     const items = (r.items||[]).filter(i=>!enStock(i) && !(state.hideDone && coches[i.id]));
     if (!items.length) return "";
@@ -480,17 +524,27 @@ function viewCourses(w){
       return `<div class="row ${on?"is-done":""}" data-coche="${esc(i.id)}"><button class="tick" role="checkbox" aria-checked="${on}" aria-label="${esc(i.label)}">${CHECK}</button><span class="lbl">${adapt(i.label)}</span><button class="mini" data-placard="${esc(i.label)}" aria-label="J'en ai déjà : ${esc(i.label)}">J'en ai</button></div>`;
     }).join("")}</section>`;
   }).join("");
-  let perso=[]; try{ perso=JSON.parse(localStorage.getItem("courses-perso")||"[]").filter(p=>!p.done); }catch(_){}
   return `<h2>Liste de courses</h2>
-    <a class="card lien-courses" href="/Courses/"><b>Ouvrir l'appli Courses</b><span>${perso.length?perso.length+" autre"+(perso.length>1?"s":"")+" article"+(perso.length>1?"s":"")+" ajouté"+(perso.length>1?"s":"")+" (entretien, beauté…)":"Ajoute l'entretien, la beauté et le reste"}</span></a>
     ${w.courses_note?`<p class="sub">${esc(w.courses_note)}</p>`:""}
-    <div class="progress"><div class="bar"><i style="width:${pct}%"></i></div><span class="count">${n} / ${all.length}</span></div>
+    <div class="progress"><div class="bar"><i style="width:${pct}%"></i></div><span class="count">${n} / ${tot}</span></div>
     <div class="tools">
       <button class="btn" id="hide-done">${state.hideDone?"Afficher les articles cochés":"Masquer les articles cochés"}</button>
       ${state.confirmReset
         ? `<button class="btn warn" id="reset-yes">Oui, tout décocher</button><button class="btn" id="reset-no">Annuler</button>`
         : `<button class="btn" id="reset">Tout décocher</button>`}
+      <button class="btn" id="share">Partager la liste</button>
     </div>
+    <p class="note" id="share-msg" style="margin:0"></p>
+    <section class="card ajout">
+      <form id="add-form" autocomplete="off"><input id="add-txt" type="text" placeholder="Ajouter : lessive, shampoing, pain…" aria-label="Article à ajouter" enterkeyhint="done"><button class="btn primary" type="submit">Ajouter</button></form>
+      <div class="cats" role="group" aria-label="Catégorie">${RAYONS_PERSO.map(([k,nom])=>`<button type="button" class="cat" data-cat="${k}" aria-pressed="${state.cat===k}">${nom}</button>`).join("")}</div>
+      <div class="habs" id="habs">${habsHtml()}</div>
+    </section>
+    ${persoCards}
+    ${PERSO.some(p=>p.done) ? (state.confirmVider
+      ? `<div class="tools"><button class="btn warn" id="vider-oui">Oui, retirer mes ajouts cochés</button><button class="btn" id="vider-non">Annuler</button></div>`
+      : `<div class="tools"><button class="btn" id="vider">Retirer mes ajouts cochés</button></div>`) : ""}
+    ${PERSO.length ? `<h2>Pour les menus</h2>` : ""}
     ${rayons || (n? `<div class="card empty"><b>Tout est dans le panier</b>Bonnes courses terminées.</div>` : "")}
     <section class="card placard"><h3 style="font-family:var(--f-display);margin:0;font-size:1rem">Déjà dans le placard (${stock.length})</h3>
     <p class="note" style="margin:4px 0 0">Touche « J'en ai » sur un article que tu as encore (miel, chia, épices…). Il disparaît de la liste, cette semaine et les suivantes, jusqu'à ce que tu le remettes.</p>
@@ -560,7 +614,23 @@ document.addEventListener("click", e=>{
     try{ navigator.clipboard.writeText(txt).then(()=>{ msg.textContent="Copié. Colle-le dans la conversation avec Claude."; }, fallback); }catch(_){ fallback(); }
     return;
   }
+  if (t.dataset.cat){ state.cat=t.dataset.cat; try{localStorage.setItem("courses-cat",state.cat)}catch(_){} render(); return; }
+  if (t.dataset.hab){ const h=HAB[t.dataset.hab]; if (!h) return; if (state.editHab){ delete HAB[t.dataset.hab]; saveKey(HK,HAB); } else ajouter(h.label,h.cat); render(); return; }
+  if (t.id==="hab-edit"){ state.editHab=!state.editHab; render(); return; }
+  if (t.id==="hab-all"){ state.allHab=!state.allHab; render(); return; }
+  if (t.dataset.del){ PERSO=PERSO.filter(p=>p.id!==t.dataset.del); saveKey(MK,PERSO); render(); return; }
+  if (t.id==="vider"){ state.confirmVider=true; render(); return; }
+  if (t.id==="vider-non"){ state.confirmVider=false; render(); return; }
+  if (t.id==="vider-oui"){ state.confirmVider=false; PERSO=PERSO.filter(p=>!p.done); saveKey(MK,PERSO); render(); return; }
+  const prow = e.target.closest(".row[data-perso]");
+  if (prow){ const p=PERSO.find(x=>x.id===prow.dataset.perso); if (p){ p.done=!p.done; saveKey(MK,PERSO); render(); } return; }
   const w = state.weeks[state.week]; if (!w) return;
+  if (t.id==="share"){
+    const txt=texteListe(w), msg=document.getElementById("share-msg");
+    if (navigator.share){ navigator.share({title:"Liste de courses", text:txt}).catch(()=>{}); }
+    else { try{ navigator.clipboard.writeText(txt).then(()=>{ msg.textContent="Liste copiée."; }, ()=>{ msg.textContent="Copie impossible."; }); }catch(_){ msg.textContent="Copie impossible."; } }
+    return;
+  }
   if (t.dataset.open){ state.open = state.open===t.dataset.open ? null : t.dataset.open; render(); return; }
   if (t.dataset.swap){ write(w.id,{swaps:{[t.dataset.swap]: t.dataset.src}}); state.open=null; render(); return; }
   if (t.dataset.fait){ const k=t.dataset.fait; write(w.id,{faits:{[k]:!(suivi(w.id).faits||{})[k]}}); return; }
@@ -574,6 +644,7 @@ document.addEventListener("click", e=>{
 });
 
 document.addEventListener("input", e=>{
+  if (e.target.id==="add-txt"){ document.getElementById("habs").innerHTML = habsHtml(); return; }
   if (e.target.id==="ravito-min"){ state.ravito = Number(e.target.value)||0; document.getElementById("ravito-out").innerHTML = ravito(state.ravito); return; }
   if (e.target.id!=="gout-a") return;
   const r = document.getElementById("gout-r"); const sug = SUGG[e.target.value.trim().toLowerCase()];
@@ -582,6 +653,13 @@ document.addEventListener("input", e=>{
 });
 document.addEventListener("submit", e=>{
   if (e.target.id==="ravito-form"){ e.preventDefault(); e.target.querySelector("input").blur(); return; }
+  if (e.target.id==="add-form"){
+    e.preventDefault();
+    const inp=document.getElementById("add-txt"), txt=inp.value.trim(); if (!txt) return;
+    const h=HAB[norm(txt)]; ajouter(h?h.label:txt, h?h.cat:state.cat); render();
+    const ni=document.getElementById("add-txt"); if (ni) ni.focus();
+    return;
+  }
   if (e.target.id!=="gout-form") return;
   e.preventDefault();
   const a = document.getElementById("gout-a").value.trim(); const ri = document.getElementById("gout-r");
@@ -614,13 +692,6 @@ function applyData(d){
     applyData(d); setSync("À jour");
   }catch(e){ if(!state.ready){ state.ready=true; render(); } setSync("Hors ligne"); }
 })();
-// Liaison en direct avec l'appli Courses (même mémoire du téléphone).
-window.addEventListener("storage", e=>{
-  if (e.key===LS){ try{ state.suivi=JSON.parse(e.newValue||"{}"); }catch(_){} }
-  else if (e.key===PK){ try{ PLACARD=JSON.parse(e.newValue||"{}"); }catch(_){} }
-  else if (e.key!=="courses-perso") return;
-  render();
-});
 if("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(()=>{});
 </script>
 </body></html>

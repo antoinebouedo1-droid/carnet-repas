@@ -1,8 +1,9 @@
 <!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Courses</title><meta http-equiv="refresh" content="0;url=/Courses/"></head>
+<title>Courses</title><meta http-equiv="refresh" content="0;url=../"></head>
 <body style="font-family:system-ui,sans-serif;padding:24px">
-<p>L'appli Courses a déménagé : <a href="/Courses/">ouvrir l'appli Courses</a>.</p>
+<p>La liste de courses est maintenant dans Carnet repas : <a href="../">ouvrir Carnet repas</a>.</p>
 <script>
 if ("serviceWorker" in navigator) navigator.serviceWorker.getRegistrations().then(rs=>rs.forEach(r=>{ if (r.scope.endsWith("/carnet-repas/courses/")) r.unregister(); })).catch(()=>{});
-location.replace("/Courses/");
+try{ localStorage.setItem("tab","courses"); }catch(_){}
+location.replace("../");
 </script></body></html>
