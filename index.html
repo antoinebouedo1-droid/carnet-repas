@@ -482,7 +482,7 @@ function viewCourses(w){
   }).join("");
   let perso=[]; try{ perso=JSON.parse(localStorage.getItem("courses-perso")||"[]").filter(p=>!p.done); }catch(_){}
   return `<h2>Liste de courses</h2>
-    <a class="card lien-courses" href="courses/"><b>Ouvrir l'appli Courses</b><span>${perso.length?perso.length+" autre"+(perso.length>1?"s":"")+" article"+(perso.length>1?"s":"")+" ajouté"+(perso.length>1?"s":"")+" (entretien, beauté…)":"Ajoute l'entretien, la beauté et le reste"}</span></a>
+    <a class="card lien-courses" href="/Courses/"><b>Ouvrir l'appli Courses</b><span>${perso.length?perso.length+" autre"+(perso.length>1?"s":"")+" article"+(perso.length>1?"s":"")+" ajouté"+(perso.length>1?"s":"")+" (entretien, beauté…)":"Ajoute l'entretien, la beauté et le reste"}</span></a>
     ${w.courses_note?`<p class="sub">${esc(w.courses_note)}</p>`:""}
     <div class="progress"><div class="bar"><i style="width:${pct}%"></i></div><span class="count">${n} / ${all.length}</span></div>
     <div class="tools">
