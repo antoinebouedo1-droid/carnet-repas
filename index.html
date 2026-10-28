@@ -150,6 +150,11 @@ nav.tabs button[aria-current="page"]{color:var(--accent);font-weight:700}
 .chart text{fill:var(--muted);font-size:10px;font-family:var(--f-body)}
 .legend{display:flex;gap:14px;flex-wrap:wrap;font-size:.75rem;color:var(--muted);margin-top:4px}
 .legend i{display:inline-block;width:12px;height:8px;border-radius:2px;margin-right:4px;vertical-align:0}
+.lien-courses{display:flex;flex-direction:column;gap:2px;text-decoration:none;color:var(--ink);border-color:#B4532A}
+.lien-courses b{font-family:var(--f-display);color:#B4532A}
+.lien-courses span{font-size:.85rem;color:var(--muted)}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]) .lien-courses b{color:#EE9A72}}
+:root[data-theme="dark"] .lien-courses b{color:#EE9A72}
 @media (prefers-reduced-motion: reduce){*{transition:none!important}}
 </style>
 
@@ -475,7 +480,9 @@ function viewCourses(w){
       return `<div class="row ${on?"is-done":""}" data-coche="${esc(i.id)}"><button class="tick" role="checkbox" aria-checked="${on}" aria-label="${esc(i.label)}">${CHECK}</button><span class="lbl">${adapt(i.label)}</span><button class="mini" data-placard="${esc(i.label)}" aria-label="J'en ai déjà : ${esc(i.label)}">J'en ai</button></div>`;
     }).join("")}</section>`;
   }).join("");
+  let perso=[]; try{ perso=JSON.parse(localStorage.getItem("courses-perso")||"[]").filter(p=>!p.done); }catch(_){}
   return `<h2>Liste de courses</h2>
+    <a class="card lien-courses" href="courses/"><b>Ouvrir l'appli Courses</b><span>${perso.length?perso.length+" autre"+(perso.length>1?"s":"")+" article"+(perso.length>1?"s":"")+" ajouté"+(perso.length>1?"s":"")+" (entretien, beauté…)":"Ajoute l'entretien, la beauté et le reste"}</span></a>
     ${w.courses_note?`<p class="sub">${esc(w.courses_note)}</p>`:""}
     <div class="progress"><div class="bar"><i style="width:${pct}%"></i></div><span class="count">${n} / ${all.length}</span></div>
     <div class="tools">
@@ -607,6 +614,13 @@ function applyData(d){
     applyData(d); setSync("À jour");
   }catch(e){ if(!state.ready){ state.ready=true; render(); } setSync("Hors ligne"); }
 })();
+// Liaison en direct avec l'appli Courses (même mémoire du téléphone).
+window.addEventListener("storage", e=>{
+  if (e.key===LS){ try{ state.suivi=JSON.parse(e.newValue||"{}"); }catch(_){} }
+  else if (e.key===PK){ try{ PLACARD=JSON.parse(e.newValue||"{}"); }catch(_){} }
+  else if (e.key!=="courses-perso") return;
+  render();
+});
 if("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(()=>{});
 </script>
 </body></html>
