@@ -222,6 +222,9 @@ const iso = d => d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+
 function addDays(isoStr, n){ const [y,m,d]=isoStr.split("-").map(Number); const dt=new Date(y,m-1,d+n); return dt; }
 const fmtShort = dt => dt.toLocaleDateString("fr-FR",{day:"numeric",month:"short"}).replace(".","");
 
+// Premier et dernier jour réellement prévus (une semaine peut n'avoir que le week-end).
+function bornes(w){ const idx=(w.jours||[]).map(j=>ORDRE.indexOf(j.j)).filter(i=>i>=0); return idx.length ? [addDays(w.debut,Math.min(...idx)), addDays(w.debut,Math.max(...idx))] : [addDays(w.debut,0), addDays(w.debut,6)]; }
+function prevu(j, k){ return !j.repas || j.repas.includes(k); }
 function weekList(){ return Object.values(state.weeks).sort((a,b)=>(a.num||0)-(b.num||0)); }
 function currentWeekId(){
   const today = iso(new Date());
@@ -262,7 +265,7 @@ function renderWeeks(){
   const l = weekList();
   const slots = l.length ? l : [1,2,3].map(n => ({id:"s"+n, num:n, placeholder:true}));
   el.innerHTML = slots.map(w => {
-    const range = w.debut ? fmtShort(addDays(w.debut,0))+" – "+fmtShort(addDays(w.debut,6)) : "à venir";
+    const range = w.debut ? bornes(w).map(fmtShort).join(" – ") : "à venir";
     return `<button id="wk-${w.id}" data-week="${w.id}" aria-pressed="${state.week===w.id}"><b>${esc(w.court || "Sem. "+w.num)}</b><span>${esc(range)}</span></button>`;
   }).join("");
   const sel = document.getElementById("wk-"+state.week);
@@ -337,12 +340,13 @@ function dayCard(w, j, isToday){
     <div class="dayhead"><div class="dayname">${JOURS[j.j]}${dt?`<small>${fmtShort(dt)}</small>`:""}${isToday?'<span class="today-flag">Aujourd\'hui</span>':""}</div>
       <button class="chip" data-t="${t}" data-type="${j.j}" aria-label="Type de journée : ${TYPE_LBL[t]}. Toucher pour changer">${TYPE_LBL[t]}</button></div>
     <ul class="meals">
-      ${mealRow(w, j.j+"-pdj","7 h","Petit-déj",petitDej(t))}
-      ${mealRow(w, j.j+"-dej","12 h","Déjeuner",platDuJour(w,j,"dej").txt, mealExtras(w,j,"dej"))}
-      ${mealRow(w, j.j+"-col","16 h 30","Collation",collation(t,j))}
+      ${j.repas?`<li class="meal"><span class="hour"></span><div class="what"><p class="note" style="margin:0">${esc(j.note || "Seuls les repas ci-dessous sont prévus ce jour-là.")}</p></div><span></span></li>`:""}
+      ${prevu(j,"pdj") ? mealRow(w, j.j+"-pdj","7 h","Petit-déj",petitDej(t)) : ""}
+      ${prevu(j,"dej") ? mealRow(w, j.j+"-dej","12 h","Déjeuner",platDuJour(w,j,"dej").txt, mealExtras(w,j,"dej")) : ""}
+      ${prevu(j,"col") ? mealRow(w, j.j+"-col","16 h 30","Collation",collation(t,j)) : ""}
       ${s?`<li class="meal"><span class="hour">18 h 30</span><div class="what"><b>Séance</b><p>${esc(s)}</p></div><span></span></li>`:""}
       ${mealRow(w, j.j+"-din","20 h","Dîner",platDuJour(w,j,"din").txt + (state.profil?.portions?.diner ? " · "+state.profil.portions.diner : ""), mealExtras(w,j,"din"))}
-      ${collationSoir(t,j) ? mealRow(w, j.j+"-soir","21 h 30","Collation du soir",collationSoir(t,j).replace(/\s*\(vers 21 h 30\)/,"")) : ""}
+      ${collationSoir(t,j) && prevu(j,"soir") ? mealRow(w, j.j+"-soir","21 h 30","Collation du soir",collationSoir(t,j).replace(/\s*\(vers 21 h 30\)/,"")) : ""}
     </ul></section>`;
 }
 
@@ -355,10 +359,10 @@ function viewJour(w){
   const todayIso = iso(new Date());
   let j = null;
   if (w.debut){ const idx = ORDRE.findIndex((_,i)=>iso(addDays(w.debut,i))===todayIso); if (idx>=0) j = (w.jours||[]).find(x=>x.j===ORDRE[idx]); }
-  const debutPlan = weekList().map(x=>x.debut).filter(Boolean).sort()[0];
-  const intro = j ? "" : (debutPlan && todayIso < debutPlan)
-    ? `<p class="sub">Ton plan démarre le lundi ${addDays(debutPlan,0).toLocaleDateString("fr-FR",{day:"numeric",month:"long"})}. En attendant, voici un aperçu du premier jour. Pense aux courses et au batch cooking du dimanche.</p>`
-    : `<p class="sub">Aujourd'hui n'est pas dans cette semaine. Voici le lundi.</p>`;
+  const debutPlan = weekList().filter(x=>x.debut).map(x=>bornes(x)[0]).sort((a,b)=>a-b)[0];
+  const intro = j ? "" : (debutPlan && todayIso < iso(debutPlan))
+    ? `<p class="sub">Ton plan démarre le ${debutPlan.toLocaleDateString("fr-FR",{weekday:"long",day:"numeric",month:"long"})}. En attendant, voici un aperçu du premier jour. Pense aux courses et au batch cooking du dimanche.</p>`
+    : `<p class="sub">Aujourd'hui n'est pas dans cette semaine. Voici le premier jour.</p>`;
   if (!j) j = (w.jours||[])[0];
   if (!j) return emptyWeek(w.num);
   const t = dayType(w,j);
@@ -467,7 +471,7 @@ function viewBilan(w){
     if (d > today) return;
     jours++;
     const t = dayType(w,j);
-    CATS.forEach(([k])=>{ if (k==="soir" && !collationSoir(t,j)) return; stats[k].total++; if (faits[j.j+"-"+k]) stats[k].fait++; });
+    CATS.forEach(([k])=>{ if (!prevu(j,k) || (k==="soir" && !collationSoir(t,j))) return; stats[k].total++; if (faits[j.j+"-"+k]) stats[k].fait++; });
   });
   if (!jours) return "";
   const tot = CATS.reduce((a,[k])=>a+stats[k].total,0), ok = CATS.reduce((a,[k])=>a+stats[k].fait,0);
