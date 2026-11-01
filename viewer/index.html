@@ -235,18 +235,13 @@ function suivi(id){ return state.suivi[id] || {}; }
 function dayType(w, j){ return (suivi(w.id).types||{})[j.j] || j.type || "repos"; }
 
 function petitDej(t){
-  return (t==="course"||t==="wod") ? "70 g de flocons d'avoine, 30 g d'amandes, 20-30 g de chia, 200 g de fromage blanc, 2 cc de miel + 1 fruit"
-                      : "50 g de flocons d'avoine, 30 g d'amandes, 20-30 g de chia, 200 g de fromage blanc, 2 cc de miel + 1 fruit" + (t==="repos" ? " + 20 g de noix dans le fromage blanc" : "");
+  return (t==="course"||t==="wod") ? "70 g de flocons d'avoine, 30 g d'amandes, 20-30 g de chia, 150 g de fromage blanc, 2 cc de miel + 1 fruit"
+                      : "50 g de flocons d'avoine, 30 g d'amandes, 20-30 g de chia, 150 g de fromage blanc, 2 cc de miel + 1 fruit" + (t==="repos" ? " + 20 g de noix dans le fromage blanc" : "");
 }
 function collation(t, j){
   if (j.collation && t===(j.type||t)) return j.collation;
   const C = state.profil && state.profil.collations; if (C && C[t]) return C[t];
   return t==="repos" ? "1 pomme + 1 barre de céréales" : "1 banane + 1 barre de céréales";
-}
-function collationSoir(t, j){
-  if (t!=="renfo" && t!=="wod") return null;
-  if (j.collation_soir && t===(j.type||t)) return j.collation_soir;
-  const C = state.profil && state.profil.collation_soir; return (C && C[t]) || "200 g de skyr ou de fromage blanc + 1 cc de miel ou 1 fruit";
 }
 function seance(t){ return t==="course" ? "Course vers 18 h 30. Eau ; au-delà de 1 h 15, gourde avec un peu de sirop." : t==="wod" ? "WOD vers 18 h 30. Eau, à petites gorgées entre les blocs." : t==="renfo" ? "Renfo vers 18 h 30. Eau." : null; }
 
@@ -345,8 +340,7 @@ function dayCard(w, j, isToday){
       ${prevu(j,"dej") ? mealRow(w, j.j+"-dej","12 h","Déjeuner",platDuJour(w,j,"dej").txt, mealExtras(w,j,"dej")) : ""}
       ${prevu(j,"col") ? mealRow(w, j.j+"-col","16 h 30","Collation",collation(t,j)) : ""}
       ${s?`<li class="meal"><span class="hour">18 h 30</span><div class="what"><b>Séance</b><p>${esc(s)}</p></div><span></span></li>`:""}
-      ${mealRow(w, j.j+"-din","20 h","Dîner",platDuJour(w,j,"din").txt + (state.profil?.portions?.diner ? " · "+state.profil.portions.diner : ""), mealExtras(w,j,"din"))}
-      ${collationSoir(t,j) && prevu(j,"soir") ? mealRow(w, j.j+"-soir","21 h 30","Collation du soir",collationSoir(t,j).replace(/\s*\(vers 21 h 30\)/,"")) : ""}
+      ${mealRow(w, j.j+"-din","20 h","Dîner",platDuJour(w,j,"din").txt, mealExtras(w,j,"din"))}
     </ul></section>`;
 }
 
@@ -373,7 +367,6 @@ function viewJour(w){
     <div class="tips"><div class="tip"><b>${fr(R.kcal," kcal")}</b>d'énergie</div><div class="tip"><b>${fr(R.glucides_g," g")}</b>de glucides</div><div class="tip"><b>${fr(R.proteines_g," g")}</b>de protéines</div><div class="tip"><b>${eau}</b>d'eau</div></div>
     ${dayCard(w,j,!intro)}
     <p class="note ro-hint">Touche l'étiquette ${TYPE_LBL[t]} pour changer le type de journée : le petit-déj, la collation et les repères s'adaptent.</p>
-    ${state.profil?.objectif ? `<section class="card"><h3 style="font-family:var(--f-display);margin:0 0 4px;font-size:1rem">Objectif prise de masse</h3><p class="note" style="margin:0 0 6px">${esc(state.profil.objectif)}</p>${state.profil.portions?`<ul class="note" style="margin:0;padding-left:1.1em">${[["Petit-déj",state.profil.portions.petit_dejeuner],["Déjeuner",state.profil.portions.dejeuner],["Dîner",state.profil.portions.diner]].filter(x=>x[1]).map(x=>`<li><b>${x[0]} :</b> ${esc(x[1])}</li>`).join("")}</ul>`:""}</section>` : ""}
     ${(state.profil?.conseils||[]).length ? `<section class="card"><h3 style="font-family:var(--f-display);margin:0 0 6px;font-size:1rem">Repères du quotidien</h3><ul class="note" style="margin:0;padding-left:1.1em;display:flex;flex-direction:column;gap:4px">${state.profil.conseils.map(c=>`<li>${esc(c)}</li>`).join("")}</ul></section>` : ""}
     ${viewRavito()}
     ${viewPoids()}`;
@@ -400,10 +393,10 @@ function viewRavito(){
 }
 
 const DEF_REPERES = {
-  course:{kcal:[3000,3200],glucides_g:[370,400],proteines_g:[110,125]},
-  renfo:{kcal:[2750,2900],glucides_g:[300,330],proteines_g:[110,125]},
-  repos:{kcal:[2550,2700],glucides_g:[280,310],proteines_g:[110,125]},
-  wod:{kcal:[2900,3100],glucides_g:[340,370],proteines_g:[115,130]}};
+  course:{kcal:[2700,2900],glucides_g:[340,370],proteines_g:[100,115]},
+  renfo:{kcal:[2450,2600],glucides_g:[270,300],proteines_g:[100,115]},
+  repos:{kcal:[2250,2400],glucides_g:[250,280],proteines_g:[100,115]},
+  wod:{kcal:[2600,2800],glucides_g:[310,340],proteines_g:[105,120]}};
 const kg = v => Number(v).toLocaleString("fr-FR",{maximumFractionDigits:1});
 function rythme(){
   const e = (state.suivi.poids||{}).entries || {};
@@ -417,9 +410,9 @@ function conseilBalance(){
   const r = rythme();
   if (!r || r.jours<13) return {cls:"note", txt:"Pèse-toi une fois par semaine : après 2 semaines, l'appli te dira s'il faut ajuster tes portions."};
   const v = (r.parSem>=0?"+":"")+kg(r.parSem)+" kg par semaine";
-  if (r.parSem<0.2) return {cls:"alert", txt:`Balance : ${v} sur 2 semaines, c'est sous l'objectif (+0,2 à 0,3). Ajoute une portion : +20 g de riz ou de pâtes crus au déjeuner.`};
-  if (r.parSem>0.4) return {cls:"alert", txt:`Balance : ${v} sur 2 semaines, c'est un peu rapide. Retire une portion : 20 g de riz ou de pâtes crus en moins au déjeuner.`};
-  return {cls:"note", txt:`Balance : ${v} sur 2 semaines, c'est le bon rythme. Ne change rien.`};
+  if (r.parSem<-0.2) return {cls:"alert", txt:`Balance : ${v} sur 2 semaines, tu perds du poids. Avec ton entraînement, il faut manger un peu plus : +20 g de riz ou de pâtes crus au déjeuner.`};
+  if (r.parSem>0.3) return {cls:"alert", txt:`Balance : ${v} sur 2 semaines, tu prends du poids. Retire une portion : 20 g de riz ou de pâtes crus en moins au déjeuner.`};
+  return {cls:"note", txt:`Balance : ${v} sur 2 semaines, ton poids est stable. Ne change rien.`};
 }
 function viewPoids(){
   const e = (state.suivi.poids||{}).entries || {};
@@ -427,17 +420,17 @@ function viewPoids(){
   const last = dates.slice(-5);
   let alert = "";
   if (dates.length>=2){ const c = conseilBalance(); alert = `<p class="${c.cls}" style="margin:10px 0 0">${esc(c.txt)}</p>`; }
-  const rule = "Pèse-toi une fois par semaine, le matin à jeun. Objectif +0,2 à 0,3 kg par semaine : l'appli te dit s'il faut ajouter ou retirer une portion.";
+  const rule = "Pèse-toi une fois par semaine, le matin à jeun. Objectif : poids stable. L'appli te dit s'il faut ajouter ou retirer une portion.";
   let chart = "";
   if (dates.length >= 2){
     const W=320, H=170, L=34, R=10, T=10, B=24;
     const t0 = new Date(dates[0]).getTime(), t1 = Math.max(new Date(dates[dates.length-1]).getTime(), t0 + 14*864e5);
     const wk = t => (t - t0)/(7*864e5);
     const e0 = e[dates[0]], wmax = wk(t1);
-    const vals = dates.map(d=>e[d]).concat([e0 + 0.3*wmax, e0]);
+    const vals = dates.map(d=>e[d]).concat([e0 + 0.3, e0 - 0.3]);
     let lo = Math.floor((Math.min(...vals)-0.3)*2)/2, hi = Math.ceil((Math.max(...vals)+0.3)*2)/2;
     const x = t => L + (t - t0)/(t1 - t0)*(W-L-R), y = v => T + (hi - v)/(hi - lo)*(H-T-B);
-    const band = `${x(t0)},${y(e0+0.2*0)} ${x(t1)},${y(e0+0.2*wmax)} ${x(t1)},${y(e0+0.3*wmax)} ${x(t0)},${y(e0)}`;
+    const band = `${x(t0)},${y(e0-0.3)} ${x(t1)},${y(e0-0.3)} ${x(t1)},${y(e0+0.3)} ${x(t0)},${y(e0+0.3)}`;
     const ticks = []; for (let v=lo; v<=hi+1e-9; v+=0.5) ticks.push(v);
     const step = Math.max(1, Math.ceil(ticks.length/5));
     const pts = dates.map(d=>[x(new Date(d).getTime()), y(e[d])]);
@@ -447,7 +440,7 @@ function viewPoids(){
       <polyline points="${pts.map(p=>p.join(",")).join(" ")}" fill="none" stroke="var(--accent)" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>
       ${pts.map((p,i)=>`<circle cx="${p[0]}" cy="${p[1]}" r="${i===pts.length-1?4.5:3}" fill="${i===pts.length-1?"var(--accent)":"var(--surface)"}" stroke="var(--accent)" stroke-width="2"/>`).join("")}
       <text x="${L}" y="${H-6}">${fmtShort(addDays(dates[0],0))}</text><text x="${W-R}" y="${H-6}" text-anchor="end">${fmtShort(new Date(t1))}</text>
-    </svg><div class="legend"><span><i style="background:var(--course-bg)"></i>Zone visée (+0,2 à 0,3 kg/sem.)</span><span><i style="background:var(--accent)"></i>Tes pesées</span></div>`;
+    </svg><div class="legend"><span><i style="background:var(--course-bg)"></i>Zone visée (poids stable, ± 0,3 kg)</span><span><i style="background:var(--accent)"></i>Tes pesées</span></div>`;
   } else if (dates.length === 1){
     chart = `<p class="note" style="margin:10px 0 0">La courbe apparaît dès ta deuxième pesée.</p>`;
   }
@@ -458,8 +451,8 @@ function viewPoids(){
     ${alert}</section>`;
 }
 
-const CATS = [["pdj","Petit-déj"],["dej","Déjeuner"],["col","Collation"],["din","Dîner"],["soir","Collation du soir"]];
-const FEM = {col:true, soir:true};
+const CATS = [["pdj","Petit-déj"],["dej","Déjeuner"],["col","Collation"],["din","Dîner"]];
+const FEM = {col:true};
 function viewBilan(w){
   const today = iso(new Date());
   if (!w.debut || today < w.debut) return "";
@@ -471,13 +464,13 @@ function viewBilan(w){
     if (d > today) return;
     jours++;
     const t = dayType(w,j);
-    CATS.forEach(([k])=>{ if (!prevu(j,k) || (k==="soir" && !collationSoir(t,j))) return; stats[k].total++; if (faits[j.j+"-"+k]) stats[k].fait++; });
+    CATS.forEach(([k])=>{ if (!prevu(j,k)) return; stats[k].total++; if (faits[j.j+"-"+k]) stats[k].fait++; });
   });
   if (!jours) return "";
   const tot = CATS.reduce((a,[k])=>a+stats[k].total,0), ok = CATS.reduce((a,[k])=>a+stats[k].fait,0);
   const manques = CATS.filter(([k])=>stats[k].total>=2 && stats[k].total-stats[k].fait>=2 && (stats[k].total-stats[k].fait)/stats[k].total>=0.4);
   const remarque = !ok ? "Coche tes repas au fil de la journée pour voir ton bilan."
-    : manques.length ? manques.map(([k,l])=>`${l} manqué${FEM[k]?"e":""} ${stats[k].total-stats[k].fait} fois sur ${stats[k].total}`).join(" · ") + ". " + (manques.some(([k])=>k==="col") ? "Garde ta banane et ta barre dans ton sac pour 16 h 30." : manques.some(([k])=>k==="pdj") ? "Prépare ton bol la veille pour gagner du temps le matin." : manques.some(([k])=>k==="soir") ? "Mets le skyr bien en vue dans le frigo après la séance." : "Prévois une solution de secours rapide pour ce repas.")
+    : manques.length ? manques.map(([k,l])=>`${l} manqué${FEM[k]?"e":""} ${stats[k].total-stats[k].fait} fois sur ${stats[k].total}`).join(" · ") + ". " + (manques.some(([k])=>k==="col") ? "Garde ta banane et ta barre dans ton sac pour 16 h 30." : manques.some(([k])=>k==="pdj") ? "Prépare ton bol la veille pour gagner du temps le matin." : "Prévois une solution de secours rapide pour ce repas.")
     : "Rien de souvent manqué, continue comme ça.";
   return `<section class="card bilan"><h3 style="font-family:var(--f-display);margin:0;font-size:1rem">Bilan de la semaine${w.debut && iso(addDays(w.debut,6))>=today?" (en cours)":""}</h3>
     <div><span class="big">${ok} / ${tot}</span> <span class="note">repas suivis sur ${jours} jour${jours>1?"s":""}</span></div>
