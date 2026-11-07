@@ -280,18 +280,35 @@ function platDuJour(w, j, kind){
   const src = sw ? (w.jours||[]).find(x=>x.j===sw) : null;
   return src ? {txt: src[kind==="dej"?"dejeuner":"diner"], from: sw} : {txt: j[kind==="dej"?"dejeuner":"diner"], from: null};
 }
+const DEHORS = ["Pâtes","Resto"];
+function fixe(j, kind){ return kind==="dej" && DEHORS.includes(j.dejeuner); }
+/* Échange dans les deux sens : le jour A prend le plat du jour B, et B prend celui de A. */
+function echanger(w, key, autre){
+  const [a, kind] = key.split("-"), sw = (suivi(w.id).swaps||{});
+  const cur = d => sw[d+"-"+kind] || d;
+  let b = autre;
+  if (!b) b = ((w.jours||[]).find(x=>x.j!==a && cur(x.j)===a)||{}).j;   // « Revenir au plat prévu » : le jour qui a mon plat
+  const patch = {};
+  if (!b){ patch[key] = ""; }
+  else {
+    const pa = cur(b), pb = cur(a);
+    patch[key] = pa===a ? "" : pa;
+    patch[b+"-"+kind] = pb===b ? "" : pb;
+  }
+  write(w.id, {swaps: patch});
+}
 function mealExtras(w, j, kind){
   const key = j.j+"-"+kind, uid = w.id+":"+key;
   const plat = platDuJour(w, j, kind), rec = recetteDe(plat.txt);
   const openR = state.open===uid+":r", openS = state.open===uid+":s";
   let html = plat.from ? `<div class="swapped">Échangé avec ${JOURS[plat.from].toLowerCase()}</div>` : "";
-  html += `<div class="acts">${rec?`<button class="mini" data-open="${uid}:r" aria-expanded="${openR}">Recette${rec.temps?" · "+esc(rec.temps):""}</button>`:""}<button class="mini" data-open="${uid}:s" aria-expanded="${openS}">Échanger</button>${["top","bof"].map(n=>`<button class="mini" data-note="${n}" data-plat="${esc(plat.txt)}" aria-pressed="${NOTES[plat.txt]===n}">${n==="top"?"J'adore":"Bof"}</button>`).join("")}</div>`;
+  html += `<div class="acts">${rec?`<button class="mini" data-open="${uid}:r" aria-expanded="${openR}">Recette${rec.temps?" · "+esc(rec.temps):""}</button>`:""}${fixe(j,kind)?"":`<button class="mini" data-open="${uid}:s" aria-expanded="${openS}">Échanger</button>`}${["top","bof"].map(n=>`<button class="mini" data-note="${n}" data-plat="${esc(plat.txt)}" aria-pressed="${NOTES[plat.txt]===n}">${n==="top"?"J'adore":"Bof"}</button>`).join("")}</div>`;
   if (openR && rec) html += `<div class="panel">${(rec.ingredients||[]).length?`<h4>Ingrédients</h4><ul>${rec.ingredients.map(x=>`<li>${adapt(x)}</li>`).join("")}</ul>`:""}${(rec.etapes||[]).length?`<h4>Étapes</h4><ol>${rec.etapes.map(x=>`<li>${adapt(x)}</li>`).join("")}</ol>`:""}</div>`;
   if (openS){
     const champ = kind==="dej"?"dejeuner":"diner";
-    const opts = (w.jours||[]).filter(x=>x.j!==j.j && x[champ] && x[champ]!==plat.txt);
+    const opts = (w.jours||[]).filter(x=>x.j!==j.j && prevu(x,kind) && !fixe(x,kind)).map(x=>({j:x.j, txt:platDuJour(w,x,kind).txt})).filter(x=>x.txt && x.txt!==plat.txt);
     const vus = new Set();
-    html += `<div class="panel"><h4>Remplacer par un ${kind==="dej"?"déjeuner":"dîner"} de la semaine</h4>${opts.filter(x=>!vus.has(x[champ]) && vus.add(x[champ])).map(x=>`<button class="opt" data-swap="${key}" data-src="${x.j}"><b>${JOURS[x.j]}</b>${adapt(x[champ])}</button>`).join("")}${plat.from?`<button class="opt" data-swap="${key}" data-src=""><b>Revenir au plat prévu</b>${adapt(j[champ])}</button>`:""}</div>`;
+    html += `<div class="panel"><h4>Échanger avec un ${kind==="dej"?"déjeuner":"dîner"} de la semaine</h4><p class="note">Les deux jours échangent leur plat.</p>${opts.filter(x=>!vus.has(x.txt) && vus.add(x.txt)).map(x=>`<button class="opt" data-swap="${key}" data-src="${x.j}"><b>${JOURS[x.j]}</b>${adapt(x.txt)}</button>`).join("")}${plat.from?`<button class="opt" data-swap="${key}" data-src=""><b>Revenir au plat prévu</b>${adapt(j[champ])}</button>`:""}</div>`;
   }
   return html;
 }
@@ -629,7 +646,7 @@ document.addEventListener("click", e=>{
     return;
   }
   if (t.dataset.open){ state.open = state.open===t.dataset.open ? null : t.dataset.open; render(); return; }
-  if (t.dataset.swap){ write(w.id,{swaps:{[t.dataset.swap]: t.dataset.src}}); state.open=null; render(); return; }
+  if (t.dataset.swap){ state.open=null; echanger(w, t.dataset.swap, t.dataset.src); return; }
   if (t.dataset.fait){ const k=t.dataset.fait; write(w.id,{faits:{[k]:!(suivi(w.id).faits||{})[k]}}); return; }
   if (t.dataset.type){ const j=(w.jours||[]).find(x=>x.j===t.dataset.type); const cur=dayType(w,j); const nxt=TYPES[(TYPES.indexOf(cur)+1)%TYPES.length]; write(w.id,{types:{[j.j]:nxt}}); return; }
   const row = e.target.closest(".row");
