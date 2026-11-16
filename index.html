@@ -71,6 +71,9 @@ h2{font-family:var(--f-display);font-weight:700;font-size:1.25rem;margin:4px 0 0
 .what b{display:block;font-size:.8rem;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.05em}
 .what p{margin:1px 0 0}
 .meal.is-done .what p{color:var(--done);text-decoration:line-through}
+.qte{margin:3px 0 0;padding:0 0 0 16px;font-size:.85rem;color:var(--muted)}
+.qte li{margin:1px 0}
+.meal.is-done .qte{text-decoration:line-through}
 .tick{width:26px;height:26px;border-radius:8px;border:2px solid var(--line);background:transparent;cursor:pointer;display:grid;place-items:center;padding:0;color:var(--accent-ink)}
 .tick[aria-checked="true"]{background:var(--accent);border-color:var(--accent)}
 .tick svg{width:14px;height:14px;opacity:0}
@@ -254,7 +257,7 @@ try{ NOTES=JSON.parse(localStorage.getItem(NK)||"{}"); }catch(_){ NOTES={}; }
 function saveKey(k,v){ try{ localStorage.setItem(k, JSON.stringify(v)); }catch(_){} }
 function aliment(label){
   return norm(label.replace(/\([^)]*\)/g,"")).replace(/^[\d,.\s]+(kg|g|l|cl|ml)?\s+/,"").replace(/^(petite?s?|grosse?s?)\s+/,"")
-    .replace(/^(pots?|sachets?|boites?|bocal|bocaux|briques?|paquets?|barquettes?|tetes?|tranches?|filets?|paves?)\s+/,"").replace(/^(de\s+|d['’])/,"").replace(/s$/,"").trim();
+    .replace(/^(pots?|sachets?|boites?|bocal|bocaux|briques?|paquets?|barquettes?|tetes?|tranches?|filets?|paves?|bouteilles?)\s+/,"").replace(/^(de\s+|d['’])/,"").replace(/s$/,"").trim();
 }
 function norm(x){ return x.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/œ/g,"oe").trim(); }
 function pattern(word){
@@ -301,9 +304,10 @@ function mealExtras(w, j, kind){
   const key = j.j+"-"+kind, uid = w.id+":"+key;
   const plat = platDuJour(w, j, kind), rec = recetteDe(plat.txt);
   const openR = state.open===uid+":r", openS = state.open===uid+":s";
-  let html = plat.from ? `<div class="swapped">Échangé avec ${JOURS[plat.from].toLowerCase()}</div>` : "";
+  let html = rec && (rec.ingredients||[]).length ? `<ul class="qte" aria-label="Quantités">${rec.ingredients.map(x=>`<li>${adapt(x)}</li>`).join("")}</ul>` : "";
+  html += plat.from ? `<div class="swapped">Échangé avec ${JOURS[plat.from].toLowerCase()}</div>` : "";
   html += `<div class="acts">${rec?`<button class="mini" data-open="${uid}:r" aria-expanded="${openR}">Recette${rec.temps?" · "+esc(rec.temps):""}</button>`:""}${fixe(j,kind)?"":`<button class="mini" data-open="${uid}:s" aria-expanded="${openS}">Échanger</button>`}${["top","bof"].map(n=>`<button class="mini" data-note="${n}" data-plat="${esc(plat.txt)}" aria-pressed="${NOTES[plat.txt]===n}">${n==="top"?"J'adore":"Bof"}</button>`).join("")}</div>`;
-  if (openR && rec) html += `<div class="panel">${(rec.ingredients||[]).length?`<h4>Ingrédients</h4><ul>${rec.ingredients.map(x=>`<li>${adapt(x)}</li>`).join("")}</ul>`:""}${(rec.etapes||[]).length?`<h4>Étapes</h4><ol>${rec.etapes.map(x=>`<li>${adapt(x)}</li>`).join("")}</ol>`:""}</div>`;
+  if (openR && rec) html += `<div class="panel">${(rec.etapes||[]).length?`<h4>Étapes</h4><ol>${rec.etapes.map(x=>`<li>${adapt(x)}</li>`).join("")}</ol>`:""}</div>`;
   if (openS){
     const champ = kind==="dej"?"dejeuner":"diner";
     const opts = (w.jours||[]).filter(x=>x.j!==j.j && prevu(x,kind) && !fixe(x,kind)).map(x=>({j:x.j, txt:platDuJour(w,x,kind).txt})).filter(x=>x.txt && x.txt!==plat.txt);
